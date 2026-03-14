@@ -1,0 +1,50 @@
+services:
+  # 1. Database Service (MySQL)
+  db:
+    build:
+      context: ./DB_Server
+      dockerfile: Dockerfile
+    environment:
+      MYSQL_ROOT_PASSWORD: super_secret_root_password
+      MYSQL_DATABASE: gsu_catalog
+      MYSQL_USER: flask_user
+      MYSQL_PASSWORD: your_secure_password
+    restart: always
+
+  # 2. Web Server Instance 1
+  web1:
+    build:
+      context: ./App_Server
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_USER: flask_user
+      DB_PASSWORD: your_secure_password
+      DB_NAME: gsu_catalog
+
+  # 3. Web Server Instance 2 (Parallel)
+  web2:
+    build:
+      context: ./App_Server
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_USER: flask_user
+      DB_PASSWORD: your_secure_password
+      DB_NAME: gsu_catalog
+
+  # 4. Load Balancer (Nginx)
+  load_balancer:
+    image: nginx:latest
+    volumes:
+      - ./App_Server/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      # Mapped to 8080 to avoid Windows access permission errors on port 80
+      - "8080:80"
+    depends_on:
+      - web1
+      - web2
