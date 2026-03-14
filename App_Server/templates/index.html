@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graduate Degree Planner</title>
+    
+    <!-- Optional: Add a link to your CSS file here -->
+    <!-- <link rel="stylesheet" href="style.css"> -->
+    
+</head>
+<body>
+
+    <header>
+        <h1>Hello from Flask!</h1>
+        <p>Served by Container ID: <b>{{ server }}</b></p>
+        <p>
+            Database Connection Status: 
+            <b>{{ status.status }}</b>
+            {% if status.status == 'Error' %}
+                <span style="color: red;">- {{ status.message }}</span>
+            {% endif %}
+        </p>
+    </header>
+
+    <main>
+        <section>
+            <form action="/view-plan" method="POST">
+                <label for="plan-select">Select Plan:</label>
+                <select name="plan_id" id="plan-select">
+                    {% if plans %}
+                        {% for plan in plans %}
+                            <option value="{{ plan }}">{{ plan }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="" disabled>No plans found in database</option>
+                    {% endif %}
+                </select>
+                <button type="submit" {% if not plans %}disabled{% endif %}>View Plan</button>
+            </form>
+        </section>
+
+        <section style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">
+            <h2>Create a New Plan</h2>
+            <p>Start building a new degree plan from scratch.</p>
+            <a href="/create-plan"><button>Create New Plan</button></a>
+        </section>
+
+        <section style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">
+            <h2>Edit Degree Program</h2>
+            <p>Modify the requirements and class groupings for a degree program.</p>
+            <a href="/edit-program"><button>Edit Program</button></a>
+        </section>
+    </main>
+
+    <footer style="margin-top: 40px; font-size: 0.8em; color: #777; text-align: center;">
+        <p>&copy; 2026 Graduate Degree Planner</p>
+    </footer>
+
+</body>
+</html>

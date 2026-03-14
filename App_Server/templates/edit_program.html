@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Degree Program</title>
+</head>
+<body>
+    <header>
+        <h1>Edit Degree Program</h1>
+        <p><a href="/">Back to Home</a></p>
+    </header>
+
+    <main>
+        <section>
+            <h2>1. Select a Program</h2>
+            <form action="/edit-program" method="GET">
+                <select name="program_data" required>
+                    <option value="" disabled {% if not major %}selected{% endif %}>-- Select a Program --</option>
+                    {% for p_major, p_degree in programs %}
+                        <option value="{{ p_major }}|{{ p_degree }}" {% if major == p_major and degree == p_degree %}selected{% endif %}>{{ p_major }} - {{ p_degree }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Select Program</button>
+            </form>
+        </section>
+
+        {% if major and degree %}
+        <section style="margin-top: 20px;">
+            <h2>2. Select a Requirement</h2>
+            <form action="/edit-program" method="GET">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                <select name="requirement" required>
+                    <option value="" disabled {% if not selected_req %}selected{% endif %}>-- Select Requirement --</option>
+                    {% for req in requirements %}
+                        <option value="{{ req }}" {% if req == selected_req %}selected{% endif %}>{{ req }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">View Groupings</button>
+            </form>
+        </section>
+        {% endif %}
+
+        {% if selected_req %}
+        <section style="margin-top: 20px;">
+            <h2>3. Edit Groupings for {{ selected_req }}</h2>
+            
+            <form action="/add-grouping" method="POST" style="margin-bottom: 20px;">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                <input type="hidden" name="requirement" value="{{ selected_req }}">
+                <label>Add a Class Grouping:</label>
+                <select name="class_data" required>
+                    <option value="" disabled selected>-- Select Grouping --</option>
+                    {% for prefix, range_val, credits in all_classes %}
+                        <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Add Grouping</button>
+            </form>
+
+            <h3>Current Class Groupings</h3>
+            {% if classes %}
+                <ul>
+                {% for prefix, range_val, credits in classes %}
+                    <li style="margin-bottom: 5px;">
+                        {{ prefix }} {{ range_val }} ({{ credits }} Credits)
+                        <form action="/remove-grouping" method="POST" style="display:inline;">
+                            <input type="hidden" name="major" value="{{ major }}">
+                            <input type="hidden" name="degree" value="{{ degree }}">
+                            <input type="hidden" name="requirement" value="{{ selected_req }}">
+                            <input type="hidden" name="class_prefix" value="{{ prefix }}">
+                            <input type="hidden" name="graduate_range" value="{{ range_val }}">
+                            <button type="submit" style="color: red; margin-left: 10px;">Remove</button>
+                        </form>
+                    </li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p>No class groupings added yet.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+    </main>
+</body>
+</html>

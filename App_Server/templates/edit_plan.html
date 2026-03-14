@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Plan: {{ plan_id }}</title>
+</head>
+<body>
+    <header>
+        <h1>Editing Plan: {{ plan_id }}</h1>
+        <p>Program: {{ major }} ({{ degree }})</p>
+        <p><a href="/">Back to Home</a></p>
+    </header>
+
+    <main>
+        <section>
+            <h2>1. Select a Requirement</h2>
+            <form action="/edit-plan/{{ plan_id }}" method="GET">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                <select name="requirement" required>
+                    <option value="" disabled {% if not selected_req %}selected{% endif %}>-- Select Requirement --</option>
+                    {% set exclusive_reqs = ['Thesis Option', 'Project Option', 'Course Only Option'] %}
+                    {% for req in requirements %}
+                        {% set is_exclusive = req in exclusive_reqs %}
+                        {% set is_chosen_exclusive = req == chosen_exclusive_option %}
+                        {% set should_disable = chosen_exclusive_option and is_exclusive and not is_chosen_exclusive %}
+                        <option value="{{ req }}"
+                                {% if req == selected_req %}selected{% endif %}
+                                {% if should_disable %}disabled{% endif %}>
+                            {{ req }}{% if should_disable %} (Locked){% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button type="submit">View Classes</button>
+            </form>
+        </section>
+
+        {% if selected_req %}
+        <section style="margin-top: 20px;">
+            <h2>2. Add a Class to {{ selected_req }}</h2>
+            <form action="/add-class" method="POST">
+                <input type="hidden" name="plan_id" value="{{ plan_id }}">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                <input type="hidden" name="requirement" value="{{ selected_req }}">
+                <select name="class_data" required>
+                    <option value="" disabled selected>-- Select Class --</option>
+                    {% for prefix, number, title, credits in classes %}
+                        <option value="{{ prefix }}|{{ number }}">{{ prefix }} {{ number }} - {{ title or 'Elective Range' }} ({{ credits }} Credits)</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Add to Plan</button>
+            </form>
+        </section>
+        {% endif %}
+
+        <section style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">
+            <h2>Classes in Your Plan</h2>
+            {% if plan_classes %}
+                <ul>
+                {% for prefix, number, title, credits in plan_classes %}
+                    <li>
+                        {{ prefix }} {{ number }} 
+                        {% if title %}- {{ title }} ({{ credits }} Credits){% else %}- Elective Range{% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p>No classes added yet.</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

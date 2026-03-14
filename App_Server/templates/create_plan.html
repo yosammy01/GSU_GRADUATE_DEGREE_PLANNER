@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Degree Plan</title>
+    <!-- You can link to the same CSS file as index.html for consistent styling -->
+</head>
+<body>
+    <header>
+        <h1>Create New Degree Plan</h1>
+        <p><a href="/">Back to Home</a></p>
+    </header>
+
+    <main>
+        <form action="/create-plan" method="POST">
+            <fieldset>
+                <legend>Plan Details</legend>
+                
+                <p>
+                    <label for="plan_id">Plan Name / ID:</label><br>
+                    <input type="text" id="plan_id" name="plan_id" required size="40">
+                </p>
+
+                <p>
+                    <label for="program-select">Program:</label><br>
+                    <select name="program" id="program-select" required>
+                        <option value="" disabled selected>-- Select a Program --</option>
+                        {% if programs %}
+                            {% for major, degree in programs %}
+                                <option value="{{ major }}|{{ degree }}">{{ major }} - {{ degree }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="" disabled>No programs found in database</option>
+                        {% endif %}
+                    </select>
+                </p>
+            </fieldset>
+            <button type="submit" {% if not programs %}disabled{% endif %}>Create Plan</button>
+        </form>
+    </main>
+</body>
+</html>
