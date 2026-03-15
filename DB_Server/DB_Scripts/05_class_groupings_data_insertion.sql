@@ -7,6 +7,7 @@ INSERT INTO Class_Groupings (class_prefix, graduate_range, credits) VALUES
 -- Foundation Classes (Specific Numbers)
 ('MATH', '2211', 4),
 ('MATH', '2212', 4),
+('CSC', '2510', 3),
 ('CSC', '6210', 4),
 ('CSC', '6320', 4),
 ('CSC', '6330', 4), -- OR option 1
@@ -64,9 +65,4 @@ INSERT INTO Requirements_Composed_Of_Class_Groupings (requirement_name, class_pr
 ('Project Option', 'CSC', '8940'),
 
 -- Course Only Option
-('Course Only Option', 'CSC', '8901'),
-
--- Graduate Assistants Requirements
-('Graduate Assistants Requirements', 'CSC', '8920'),
-('Graduate Assistants Requirements', 'CSC', '8981'),
-('Graduate Assistants Requirements', 'CSC', '8982');
+('Course Only Option', 'CSC', '8901');

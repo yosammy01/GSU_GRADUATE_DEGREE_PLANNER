@@ -2,6 +2,7 @@
 -- Core Entities (Parent Tables)
 -- These must be created first before any foreign keys can reference them.
 -- ==============================================================================
+USE gsu_catalog;
 
 CREATE TABLE Student (
     id VARCHAR(50) PRIMARY KEY,
@@ -28,10 +29,9 @@ CREATE TABLE Class_Groupings (
 
 CREATE TABLE Plan (
     plan_id VARCHAR(50) PRIMARY KEY,
-    grade VARCHAR(2),
-    semester VARCHAR(50),
-    year INT,
-    taken_planned BOOLEAN
+    major VARCHAR(255),
+    degree VARCHAR(255),
+    FOREIGN KEY (major, degree) REFERENCES Program(major, degree) ON DELETE SET NULL
 );
 
 CREATE TABLE Class (
@@ -92,9 +92,15 @@ CREATE TABLE Plan_Requires_Class (
     plan_id VARCHAR(50),
     class_prefix VARCHAR(10),
     class_number VARCHAR(20),
+    requirement_name VARCHAR(255) NOT NULL,
+    taken_planned BOOLEAN,
+    grade VARCHAR(2),
+    semester VARCHAR(50),
+    year INT,
     PRIMARY KEY (plan_id, class_prefix, class_number),
     FOREIGN KEY (plan_id) REFERENCES Plan(plan_id) ON DELETE CASCADE,
-    FOREIGN KEY (class_prefix, class_number) REFERENCES Class(class_prefix, class_number) ON DELETE CASCADE
+    FOREIGN KEY (class_prefix, class_number) REFERENCES Class(class_prefix, class_number) ON DELETE CASCADE,
+    FOREIGN KEY (requirement_name) REFERENCES Requirements(requirement_name) ON DELETE CASCADE
 );
 
 CREATE TABLE Class_Taken_From_Class_Catalog (

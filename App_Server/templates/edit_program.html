@@ -23,6 +23,13 @@
                 </select>
                 <button type="submit">Select Program</button>
             </form>
+
+            <h3 style="margin-top: 15px;">Or Create a New Program</h3>
+            <form action="/create-program" method="POST">
+                <input type="text" name="major" placeholder="Major (e.g. Computer Science)" required style="width: 210px;">
+                <input type="text" name="degree" placeholder="Degree (e.g. MS)" required style="width: 130px;">
+                <button type="submit">Create Program</button>
+            </form>
         </section>
 
         {% if major and degree %}
@@ -39,6 +46,43 @@
                 </select>
                 <button type="submit">View Groupings</button>
             </form>
+            
+            <h3 style="margin-top: 15px;">Or Add a Requirement to this Program</h3>
+            <form action="/add-requirement-to-program" method="POST">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                
+                <label>Select Existing Requirement:</label>
+                <select name="existing_requirement">
+                    <option value="" selected>-- Select Existing --</option>
+                    {% for req in all_requirements %}
+                        <option value="{{ req }}">{{ req }}</option>
+                    {% endfor %}
+                </select>
+                <br>
+                <span style="display:inline-block; margin: 10px 0;"><b>OR</b></span>
+                <br>
+                <label>Create New Requirement:</label>
+                <input type="text" name="new_requirement" placeholder="Requirement Name">
+                <select name="new_requirement_grade" style="width: 140px;">
+                    <option value="">Min Grade</option>
+                    <option value="A+">A+</option>
+                    <option value="A">A</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B">B</option>
+                    <option value="B-">B-</option>
+                    <option value="C+">C+</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="F">F</option>
+                    <option value="S">S (Satisfactory)</option>
+                    <option value="U">U (Unsatisfactory)</option>
+                    <option value="P">P (Pass)</option>
+                    <option value="NP">NP (No Pass)</option>
+                </select>
+                <button type="submit" style="margin-left: 10px;">Add Requirement to Program</button>
+            </form>
         </section>
         {% endif %}
 
@@ -53,9 +97,16 @@
                 <label>Add a Class Grouping:</label>
                 <select name="class_data" required>
                     <option value="" disabled selected>-- Select Grouping --</option>
-                    {% for prefix, range_val, credits in all_classes %}
-                        <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
-                    {% endfor %}
+                    <optgroup label="Existing Groupings">
+                        {% for prefix, range_val, credits in all_classes %}
+                            <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Class Catalog">
+                        {% for prefix, number, credits, title in all_catalog_classes %}
+                            <option value="{{ prefix }}|{{ number }}|{{ credits or 0 }}">{{ prefix }} {{ number }} - {{ title }} ({{ credits or 0 }} Credits)</option>
+                        {% endfor %}
+                    </optgroup>
                 </select>
                 <button type="submit">Add Grouping</button>
             </form>

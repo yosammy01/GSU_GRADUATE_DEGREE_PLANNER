@@ -6,6 +6,7 @@
 INSERT INTO Class_Catalog (class_prefix, graduate_class_number, class_title, credits) VALUES
 ('MATH', '2211', 'Calculus of One Variable I', 4),
 ('MATH', '2212', 'Calculus of One Variable II', 4),
+('CSC', '2510', 'Theoretical Foundations of Computer Science', 3),
 ('CSC', '6030', 'Computational Epidemiology I', 4),
 ('CSC', '6040', 'Computational Epidemiology II', 4),
 ('CSC', '6110', 'Introduction to Embedded Systems Laboratory', 4),

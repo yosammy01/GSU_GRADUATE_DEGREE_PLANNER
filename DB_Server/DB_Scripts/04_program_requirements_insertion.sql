@@ -9,8 +9,7 @@ INSERT IGNORE INTO Requirements (requirement_name, minimum_grade) VALUES
 ('Graduate-Level Coursework', 'B'),
 ('Thesis Option', 'B'),
 ('Project Option', 'B'),
-('Course Only Option', 'B'),
-('Graduate Assistants Requirements', 'B');
+('Course Only Option', 'B');
 
 -- Link requirements to the Computer Science MS program
 INSERT IGNORE INTO Program_Has_Requirements (major, degree, requirement_name) VALUES
@@ -19,5 +18,4 @@ INSERT IGNORE INTO Program_Has_Requirements (major, degree, requirement_name) VA
 ('Computer Science', 'MS', 'Graduate-Level Coursework'),
 ('Computer Science', 'MS', 'Thesis Option'),
 ('Computer Science', 'MS', 'Project Option'),
-('Computer Science', 'MS', 'Course Only Option'),
-('Computer Science', 'MS', 'Graduate Assistants Requirements');
+('Computer Science', 'MS', 'Course Only Option');
