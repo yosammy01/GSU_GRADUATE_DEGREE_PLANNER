@@ -25,6 +25,7 @@ services:
       DB_USER: flask_user
       DB_PASSWORD: your_secure_password
       DB_NAME: gsu_catalog
+      ADMIN_PASSWORD: "admin"
 
   # 3. Web Server Instance 2 (Parallel)
   web2:
@@ -38,6 +39,7 @@ services:
       DB_USER: flask_user
       DB_PASSWORD: your_secure_password
       DB_NAME: gsu_catalog
+      ADMIN_PASSWORD: "admin"
 
   # 4. Load Balancer (Nginx)
   load_balancer:
