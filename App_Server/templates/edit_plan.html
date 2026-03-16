@@ -63,12 +63,13 @@
                     <input type="hidden" name="major" value="{{ major }}">
                     <input type="hidden" name="degree" value="{{ degree }}">
                     <input type="hidden" name="requirement" value="{{ selected_req }}">
-                    <select name="class_data" required>
+                    <select name="class_data" id="class_data_select" required>
                         <option value="" disabled selected>-- Select Class --</option>
                         {% for prefix, number, title, credits in classes %}
-                            <option value="{{ prefix }}|{{ number }}">{{ prefix }} {{ number }} - {{ title or 'Elective Range' }} ({{ credits }} Credits)</option>
+                            <option value="{{ prefix }}|{{ number }}|{{ credits or 0 }}">{{ prefix }} {{ number }} - {{ title or 'Elective Range' }} ({{ credits or 'Variable' }} Credits)</option>
                         {% endfor %}
                     </select>
+                    <input type="number" name="manual_credits" id="manual_credits_input" placeholder="Enter Credits" min="0" style="display: none; width: 100px; margin-left: 10px;">
                     <select name="taken_planned" id="taken_planned_select" required style="margin-left: 10px;">
                         <option value="1">Taken</option>
                         <option value="0" selected>Planned</option>
@@ -95,8 +96,6 @@
                         <option value="F">F</option>
                         <option value="S">S (Satisfactory)</option>
                         <option value="U">U (Unsatisfactory)</option>
-                        <option value="P">P (Pass)</option>
-                        <option value="NP">NP (No Pass)</option>
                     </select>
                     <button type="submit" style="margin-left: 10px;">Add to Plan</button>
                 </form>
@@ -144,6 +143,8 @@
             const addClassForm = document.querySelector('form[action="/add-class"]');
             if (!addClassForm) return;
 
+            const classSelect = document.getElementById('class_data_select');
+
             const semesterSelect = document.getElementById('semester_select');
             const takenPlannedSelect = document.getElementById('taken_planned_select');
             const yearInput = document.getElementById('year_input');
@@ -173,6 +174,24 @@
                 // Re-enable disabled fields just before submission so their values are sent
                 [takenPlannedSelect, yearInput, gradeSelect].forEach(el => el.disabled = false);
             });
+
+            const manualCreditsInput = document.getElementById('manual_credits_input');
+            if (classSelect) {
+                classSelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const classData = selectedOption.value.split('|');
+                    const credits = parseInt(classData[2], 10);
+
+                    if (credits === 0) {
+                        manualCreditsInput.style.display = 'inline-block';
+                        manualCreditsInput.required = true;
+                    } else {
+                        manualCreditsInput.style.display = 'none';
+                        manualCreditsInput.required = false;
+                        manualCreditsInput.value = '';
+                    }
+                });
+            }
         });
     </script>
 </body>

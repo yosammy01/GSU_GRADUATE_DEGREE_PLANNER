@@ -21,10 +21,18 @@ CREATE TABLE Requirements (
 );
 
 CREATE TABLE Class_Groupings (
+    grouping_id INT AUTO_INCREMENT PRIMARY KEY,
+    grouping_name VARCHAR(255),
+    credits INT
+);
+
+CREATE TABLE Class_Grouping_Elements (
+    grouping_id INT,
     class_prefix VARCHAR(10),
-    graduate_range VARCHAR(50),
-    credits INT,
-    PRIMARY KEY (class_prefix, graduate_range)
+    min_class_number INT,
+    max_class_number INT,
+    PRIMARY KEY (grouping_id, class_prefix, min_class_number, max_class_number),
+    FOREIGN KEY (grouping_id) REFERENCES Class_Groupings(grouping_id) ON DELETE CASCADE
 );
 
 CREATE TABLE Plan (
@@ -73,11 +81,10 @@ CREATE TABLE Program_Has_Requirements (
 
 CREATE TABLE Requirements_Composed_Of_Class_Groupings (
     requirement_name VARCHAR(255),
-    class_prefix VARCHAR(10),
-    graduate_range VARCHAR(50),
-    PRIMARY KEY (requirement_name, class_prefix, graduate_range),
+    grouping_id INT,
+    PRIMARY KEY (requirement_name, grouping_id),
     FOREIGN KEY (requirement_name) REFERENCES Requirements(requirement_name) ON DELETE CASCADE,
-    FOREIGN KEY (class_prefix, graduate_range) REFERENCES Class_Groupings(class_prefix, graduate_range) ON DELETE CASCADE
+    FOREIGN KEY (grouping_id) REFERENCES Class_Groupings(grouping_id) ON DELETE CASCADE
 );
 
 CREATE TABLE Student_Plans_Plan (
@@ -97,6 +104,7 @@ CREATE TABLE Plan_Requires_Class (
     grade VARCHAR(2),
     semester VARCHAR(50),
     year INT,
+    credits INT,
     PRIMARY KEY (plan_id, class_prefix, class_number),
     FOREIGN KEY (plan_id) REFERENCES Plan(plan_id) ON DELETE CASCADE,
     FOREIGN KEY (class_prefix, class_number) REFERENCES Class(class_prefix, class_number) ON DELETE CASCADE,

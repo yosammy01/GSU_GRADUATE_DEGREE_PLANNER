@@ -5,9 +5,9 @@
 -- Insert foundational requirements
 INSERT IGNORE INTO Requirements (requirement_name, minimum_grade) VALUES
 ('Foundation Coursework', 'B'),
-('Research Training Course', 'B'),
+('Research Training Course', 'S'),
 ('Graduate-Level Coursework', 'B'),
-('Thesis Option', 'B'),
+('Thesis Option', 'S'),
 ('Project Option', 'B'),
 ('Course Only Option', 'B');
 
