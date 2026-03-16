@@ -30,44 +30,59 @@ def get_db_connection():
 
 def check_db_status():
     """Helper function to check database connection and return status dictionary."""
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()  
         cursor.execute("SELECT DATABASE();")
         db_name = cursor.fetchone()
-        cursor.close()
-        conn.close()
         return {"status": "Success", "database": db_name[0] if db_name else "N/A"}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
 def get_plans_from_db():
     """Fetches a list of all plan_ids from the Plan table."""
     plans = []
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT plan_id FROM Plan ORDER BY plan_id ASC;")
         # The result is a list of tuples, so we extract the first element of each tuple
         plans = [item[0] for item in cursor.fetchall()]
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error fetching plans from DB: {e}") # Log error to console
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
     return plans
 
 def get_programs_from_db():
     """Fetches a list of all (major, degree) pairs from the Program table."""
     programs = []
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT major, degree FROM Program ORDER BY major, degree ASC;")
         programs = cursor.fetchall() # This will be a list of tuples
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error fetching programs from DB: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
     return programs
 
 @app.route('/')
@@ -85,7 +100,8 @@ def view_plan():
 
     plan_details = {}
     classes_by_req = {}
-    
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -121,12 +137,15 @@ def view_plan():
                 classes_by_req[req_name] = []
             classes_by_req[req_name].append(c)
 
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error fetching plan view details: {e}")
         return "Error loading plan", 500
-
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+            
     return render_template('view_plan.html', plan=plan_details, classes_by_req=classes_by_req)
 
 @app.route('/delete-plan', methods=['POST'])
@@ -134,15 +153,20 @@ def delete_plan():
     """Deletes a selected plan from the database."""
     plan_id = request.form.get('plan_id')
     if plan_id:
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM Plan WHERE plan_id = %s", (plan_id,))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error deleting plan: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
             
     return redirect(url_for('hello'))
 
@@ -161,6 +185,8 @@ def create_plan():
 
         final_plan_id = original_plan_id
 
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -180,12 +206,15 @@ def create_plan():
 
             cursor.execute("INSERT INTO Plan (plan_id, major, degree) VALUES (%s, %s, %s)", (final_plan_id, major, degree))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error creating plan: {e}")
             return "An error occurred while creating the plan. Please ensure all fields are filled correctly and try again.", 500
-
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+                
         return redirect(url_for('edit_plan', plan_id=final_plan_id, major=major, degree=degree))
 
     # --- Display Form (GET Request) ---
@@ -202,6 +231,8 @@ def edit_plan(plan_id):
     # If major/degree are missing, the plan may not have a program assigned yet.
     if not major or not degree:
         db_major, db_degree = None, None
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -209,12 +240,15 @@ def edit_plan(plan_id):
             result = cursor.fetchone()
             if result:
                 db_major, db_degree = result[0], result[1]
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error checking plan program: {e}")
             return "Error loading plan.", 500
-        
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+                
         # If program exists in DB but not URL, redirect to the full URL
         if db_major and db_degree:
             return redirect(url_for('edit_plan', plan_id=plan_id, major=db_major, degree=db_degree))
@@ -231,6 +265,8 @@ def edit_plan(plan_id):
     chosen_exclusive_option = None
     plan_classes_grouped = {}
 
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -305,12 +341,15 @@ def edit_plan(plan_id):
                 plan_classes_grouped[req_name] = []
             plan_classes_grouped[req_name].append(pc)
 
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error fetching plan details: {e}")
         return "An error occurred while loading the plan editor.", 500
-
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+            
     return render_template('edit_plan.html', plan_id=plan_id, major=major, degree=degree,
                            requirements=requirements, selected_req=selected_req,
                            classes=classes, plan_classes=plan_classes_grouped,
@@ -327,16 +366,21 @@ def assign_program():
     if not all([plan_id, major, degree]):
         return "Invalid data submitted. Plan ID and Program are required.", 400
 
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE Plan SET major = %s, degree = %s WHERE plan_id = %s", (major, degree, plan_id))
         conn.commit()
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error assigning program to plan: {e}")
         return "Error updating plan.", 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
     return redirect(url_for('edit_plan', plan_id=plan_id, major=major, degree=degree))
 
@@ -363,6 +407,8 @@ def add_class():
         year_val = int(year) if year and year.isdigit() else None
         grade_val = grade if grade else None
         
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -370,10 +416,13 @@ def add_class():
             cursor.execute("INSERT IGNORE INTO Plan_Requires_Class (plan_id, class_prefix, class_number, requirement_name, taken_planned, semester, year, grade) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                            (plan_id, class_prefix, class_number, requirement, taken_planned_val, semester, year_val, grade_val))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error adding class: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
 
     return redirect(url_for('edit_plan', plan_id=plan_id, major=major, degree=degree, requirement=requirement))
 
@@ -388,16 +437,21 @@ def remove_class():
     class_number = request.form.get('class_number')
 
     if plan_id and class_prefix and class_number:
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM Plan_Requires_Class WHERE plan_id = %s AND class_prefix = %s AND class_number = %s",
                            (plan_id, class_prefix, class_number))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error removing class: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
 
     return redirect(url_for('edit_plan', plan_id=plan_id, major=major, degree=degree, requirement=requirement))
 
@@ -422,6 +476,8 @@ def edit_program():
     all_requirements = []
     all_catalog_classes = []
 
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -452,10 +508,13 @@ def edit_program():
                 cursor.execute("SELECT class_prefix, graduate_class_number, credits, class_title FROM Class_Catalog")
                 all_catalog_classes = cursor.fetchall()
 
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error fetching program details: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
     return render_template('edit_program.html', programs=programs, major=major, degree=degree,
                            requirements=requirements, selected_req=selected_req,
@@ -467,15 +526,20 @@ def create_program():
     major = request.form.get('major')
     degree = request.form.get('degree')
     if major and degree:
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("INSERT IGNORE INTO Program (major, degree) VALUES (%s, %s)", (major, degree))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error creating program: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
     return redirect(url_for('edit_program', major=major, degree=degree))
 
 @app.route('/add-requirement-to-program', methods=['POST'])
@@ -488,6 +552,8 @@ def add_requirement_to_program():
     
     req_to_add = None
     
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -502,11 +568,14 @@ def add_requirement_to_program():
             cursor.execute("INSERT IGNORE INTO Program_Has_Requirements (major, degree, requirement_name) VALUES (%s, %s, %s)", (major, degree, req_to_add))
             
         conn.commit()
-        cursor.close()
-        conn.close()
     except Exception as e:
         print(f"Error adding requirement to program: {e}")
-        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+            
     return redirect(url_for('edit_program', major=major, degree=degree, requirement=req_to_add))
 
 @app.route('/add-grouping', methods=['POST'])
@@ -521,6 +590,8 @@ def add_grouping():
     credits = class_data[2] if len(class_data) > 2 else None
 
     if requirement and class_prefix and graduate_range:
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -534,11 +605,14 @@ def add_grouping():
             cursor.execute("INSERT IGNORE INTO Requirements_Composed_Of_Class_Groupings (requirement_name, class_prefix, graduate_range) VALUES (%s, %s, %s)",
                            (requirement, class_prefix, graduate_range))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error adding grouping: {e}")
-
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+                
     return redirect(url_for('edit_program', major=major, degree=degree, requirement=requirement))
 
 @app.route('/remove-grouping', methods=['POST'])
@@ -550,16 +624,21 @@ def remove_grouping():
     graduate_range = request.form.get('graduate_range')
 
     if requirement and class_prefix and graduate_range:
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM Requirements_Composed_Of_Class_Groupings WHERE requirement_name = %s AND class_prefix = %s AND graduate_range = %s",
                            (requirement, class_prefix, graduate_range))
             conn.commit()
-            cursor.close()
-            conn.close()
         except Exception as e:
             print(f"Error removing grouping: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
 
     return redirect(url_for('edit_program', major=major, degree=degree, requirement=requirement))
 
