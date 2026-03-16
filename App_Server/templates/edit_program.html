@@ -30,6 +30,15 @@
                 <input type="text" name="degree" placeholder="Degree (e.g. MS)" required style="width: 130px;">
                 <button type="submit">Create Program</button>
             </form>
+
+            {% if major and degree %}
+            <form action="/delete-program" method="POST" style="margin-top: 15px;" onsubmit="return confirm('Are you sure you want to delete this program? All related plans and requirements associations will be affected.');">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-right: 10px;">
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer;">Delete Selected Program</button>
+            </form>
+            {% endif %}
         </section>
 
         {% if major and degree %}
@@ -94,9 +103,11 @@
                 <input type="hidden" name="major" value="{{ major }}">
                 <input type="hidden" name="degree" value="{{ degree }}">
                 <input type="hidden" name="requirement" value="{{ selected_req }}">
-                <label>Add a Class Grouping:</label>
-                <select name="class_data" required>
-                    <option value="" disabled selected>-- Select Grouping --</option>
+                
+                <!-- Option 1: Select Existing -->
+                <label><strong>Select Existing Grouping:</strong></label><br>
+                <select name="class_data">
+                    <option value="">-- Choose Existing --</option>
                     <optgroup label="Existing Groupings">
                         {% for prefix, range_val, credits in all_classes %}
                             <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
@@ -108,6 +119,22 @@
                         {% endfor %}
                     </optgroup>
                 </select>
+                
+                <br><br>
+                <p><strong>-- OR --</strong></p>
+                
+                <!-- Option 2: Create New -->
+                <label><strong>Create New Grouping:</strong></label>
+                <p style="font-size: 0.9em; color: #555; margin-top: 5px; margin-bottom: 10px;">
+                    <em>Guidance: <strong>Prefix</strong> must be a string (e.g. CSC). <strong>Range</strong> can be a specific number (e.g. 8900) or a dash-separated range (e.g. 6000-9999). <strong>Credits</strong> is numeric.</em>
+                </p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" name="new_class_prefix" placeholder="Prefix (e.g. CSC)" style="width: 120px;">
+                    <input type="text" name="new_graduate_range" placeholder="Range (e.g. 6000-9999)" style="width: 160px;">
+                    <input type="number" name="new_credits" placeholder="Credits (e.g. 4)" style="width: 120px;">
+                </div>
+                
+                <br>
                 <button type="submit">Add Grouping</button>
             </form>
 
@@ -133,6 +160,39 @@
             {% endif %}
         </section>
         {% endif %}
+        
+        <section style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
+            <h2>Global Requirement Management</h2>
+            <h3>Delete Unused Requirement</h3>
+            <p style="font-size: 0.9em; color: #555;">Requirements can only be permanently deleted if they are not currently assigned to any degree program.</p>
+            <form action="/delete-requirement-global" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this requirement from the database?');">
+                <input type="hidden" name="major" value="{{ major or '' }}">
+                <input type="hidden" name="degree" value="{{ degree or '' }}">
+                
+                <select name="requirement" required>
+                    <option value="" disabled selected>-- Select Requirement --</option>
+                    {% for req in all_requirements %}
+                        <option value="{{ req }}">{{ req }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
+            </form>
+
+            <h3 style="margin-top: 25px;">Delete Unused Grouping</h3>
+            <p style="font-size: 0.9em; color: #555;">Groupings can only be permanently deleted if they are not currently assigned to any requirement.</p>
+            <form action="/delete-grouping-global" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this grouping from the database?');">
+                <input type="hidden" name="major" value="{{ major or '' }}">
+                <input type="hidden" name="degree" value="{{ degree or '' }}">
+                
+                <select name="grouping" required>
+                    <option value="" disabled selected>-- Select Grouping --</option>
+                    {% for prefix, range_val, credits in all_classes %}
+                        <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
+            </form>
+        </section>
     </main>
 </body>
 </html>

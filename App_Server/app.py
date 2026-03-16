@@ -117,25 +117,63 @@ def view_plan():
         plan_details['major'] = plan_info['major']
         plan_details['degree'] = plan_info['degree']
 
-        # 2. Fetch classes for this plan, along with their requirement and other details
+        # 2. Fetch all requirements for the program. For each requirement, calculate the total credits
+        # required by summing the credits from its constituent class groupings.
+        cursor.execute("""
+            SELECT
+                phr.requirement_name,
+                SUM(cg.credits) AS total_credits_required
+            FROM Program_Has_Requirements phr
+            LEFT JOIN Requirements_Composed_Of_Class_Groupings rcog ON phr.requirement_name = rcog.requirement_name
+            LEFT JOIN Class_Groupings cg ON rcog.class_prefix = cg.class_prefix AND rcog.graduate_range = cg.graduate_range
+            WHERE phr.major = %s AND phr.degree = %s
+            GROUP BY phr.requirement_name
+        """, (plan_info['major'], plan_info['degree']))
+
+        requirements_info = {}
+        for row in cursor.fetchall():
+            req_name = row['requirement_name']
+            classes_by_req[req_name] = []
+            requirements_info[req_name] = {
+                'total_credits': row['total_credits_required'],
+                'planned_credits': 0
+            }
+
+        # 3. Fetch classes currently in this plan
         cursor.execute("""
             SELECT 
                 prc.requirement_name, prc.class_prefix, prc.class_number, 
                 cc.class_title, COALESCE(cc.credits, cg.credits) AS credits,
-                prc.taken_planned, prc.semester, prc.year, prc.grade
+                prc.taken_planned, prc.semester, prc.year, prc.grade,
+                0 AS is_placeholder
             FROM Plan_Requires_Class prc
             LEFT JOIN Class_Catalog cc ON prc.class_prefix = cc.class_prefix AND prc.class_number = cc.graduate_class_number
             LEFT JOIN Class_Groupings cg ON prc.class_prefix = cg.class_prefix AND prc.class_number = cg.graduate_range
             WHERE prc.plan_id = %s
-            ORDER BY prc.requirement_name, prc.class_prefix, prc.class_number
         """, (plan_id,))
-        
-        # 3. Group classes by requirement
+
+        # 4. Group planned classes by requirement and sum their credits
         for c in cursor.fetchall():
             req_name = c['requirement_name']
-            if req_name not in classes_by_req:
-                classes_by_req[req_name] = []
-            classes_by_req[req_name].append(c)
+            if req_name in classes_by_req:
+                classes_by_req[req_name].append(c)
+                # Add the class's credits to the planned total for that requirement
+                if c['credits'] and requirements_info.get(req_name):
+                    requirements_info[req_name]['planned_credits'] += c['credits']
+
+        # 5. For each requirement, if credits are tracked, add a placeholder for the remainder.
+        for req_name, req_info in requirements_info.items():
+            # Use `or 0` to handle cases where total_credits might be None
+            total = req_info.get('total_credits') or 0
+            if total > 0:
+                remaining_credits = total - req_info['planned_credits']
+                if remaining_credits > 0:
+                    classes_by_req[req_name].append({
+                        'requirement_name': req_name, 'class_prefix': 'TBD', 'class_number': '',
+                        'class_title': f'{remaining_credits} credits remaining to be planned',
+                        'credits': remaining_credits, 'semester': 'Needed', 'year': None, 'grade': None,
+                        'taken_planned': 0, 'is_placeholder': 1
+                    })
 
     except Exception as e:
         print(f"Error fetching plan view details: {e}")
@@ -275,45 +313,10 @@ def edit_plan(plan_id):
         cursor.execute("SELECT requirement_name FROM Program_Has_Requirements WHERE major = %s AND degree = %s", (major, degree))
         requirements = [row[0] for row in cursor.fetchall()]
 
-        # 2. Fetch classes for the selected requirement
-        if selected_req:
-            specific_classes = []
-            range_classes = []
-            
-            try:
-                # Fetch specific classes using LEFT JOINs to guarantee they always appear
-                cursor.execute("""
-                    SELECT rc.class_prefix, rc.graduate_range AS class_number, cc.class_title, COALESCE(cc.credits, cg.credits) 
-                    FROM Requirements_Composed_Of_Class_Groupings rc
-                    LEFT JOIN Class_Groupings cg ON rc.class_prefix = cg.class_prefix AND rc.graduate_range = cg.graduate_range
-                    LEFT JOIN Class_Catalog cc ON rc.class_prefix = cc.class_prefix AND rc.graduate_range = cc.graduate_class_number
-                    WHERE rc.requirement_name = %s AND rc.graduate_range NOT LIKE '%%-%%'
-                """, (selected_req,))
-                specific_classes = cursor.fetchall()
-            except Exception as e:
-                print(f"Error fetching specific classes: {e}")
-
-            try:
-                # Fetch elective range classes safely
-                cursor.execute("""
-                    SELECT cc.class_prefix, cc.graduate_class_number AS class_number, cc.class_title, cc.credits
-                    FROM Requirements_Composed_Of_Class_Groupings rc
-                    JOIN Class_Catalog cc ON rc.class_prefix = cc.class_prefix
-                    WHERE rc.requirement_name = %s AND rc.graduate_range LIKE '%%-%%'
-                      AND cc.graduate_class_number >= SUBSTRING_INDEX(rc.graduate_range, '-', 1)
-                      AND cc.graduate_class_number <= SUBSTRING_INDEX(rc.graduate_range, '-', -1)
-                """, (selected_req,))
-                range_classes = cursor.fetchall()
-            except Exception as e:
-                print(f"Error fetching range classes: {e}")
-                
-            classes = specific_classes + range_classes
-            classes.sort(key=lambda x: (x[0], x[1]))
-
-        # 3. Fetch currently added classes for this plan
+        # Fetch currently added classes for this plan FIRST, as it's needed to determine which requirements are satisfied
         cursor.execute("""
             SELECT prc.class_prefix, prc.class_number, cc.class_title, COALESCE(cc.credits, cg.credits), prc.requirement_name,
-                   prc.taken_planned, prc.semester, prc.year, prc.grade
+                   prc.taken_planned, prc.semester, prc.year, prc.grade, 0 AS is_placeholder
             FROM Plan_Requires_Class prc
             LEFT JOIN Class_Catalog cc ON prc.class_prefix = cc.class_prefix AND prc.class_number = cc.graduate_class_number
             LEFT JOIN Class_Groupings cg ON prc.class_prefix = cg.class_prefix AND prc.class_number = cg.graduate_range
@@ -321,6 +324,118 @@ def edit_plan(plan_id):
             ORDER BY prc.requirement_name, prc.class_prefix, prc.class_number
         """, (plan_id,))
         plan_classes = cursor.fetchall()
+        plan_class_prefix_num = [(pc[0], pc[1]) for pc in plan_classes]
+
+        # 1a. Calculate total credits required for each requirement
+        requirements_info = {}
+        cursor.execute("""
+            SELECT
+                phr.requirement_name,
+                SUM(cg.credits)
+            FROM Program_Has_Requirements phr
+            LEFT JOIN Requirements_Composed_Of_Class_Groupings rcog ON phr.requirement_name = rcog.requirement_name
+            LEFT JOIN Class_Groupings cg ON rcog.class_prefix = cg.class_prefix AND rcog.graduate_range = cg.graduate_range
+            WHERE phr.major = %s AND phr.degree = %s
+            GROUP BY phr.requirement_name
+        """, (major, degree))
+
+        for row in cursor.fetchall():
+            req_name = row[0]
+            total_credits = row[1]
+            requirements_info[req_name] = {
+                'total_credits': total_credits,
+                'planned_credits': 0
+            }
+
+        # 2. Fetch classes for the selected requirement
+        if selected_req:
+            specific_classes = []
+            range_classes = []
+
+            # Fetch specific, non-range classes, excluding any already in the plan.
+            cursor.execute("""
+                SELECT rc.class_prefix, rc.graduate_range AS class_number, cc.class_title, COALESCE(cc.credits, cg.credits)
+                FROM Requirements_Composed_Of_Class_Groupings rc
+                LEFT JOIN Class_Groupings cg ON rc.class_prefix = cg.class_prefix AND rc.graduate_range = cg.graduate_range
+                LEFT JOIN Class_Catalog cc ON rc.class_prefix = cc.class_prefix AND rc.graduate_range = cc.graduate_class_number
+                WHERE rc.requirement_name = %s AND rc.graduate_range NOT LIKE '%%-%%'
+                AND NOT EXISTS (
+                    SELECT 1 FROM Plan_Requires_Class prc
+                    WHERE prc.plan_id = %s AND prc.class_prefix = rc.class_prefix AND prc.class_number = rc.graduate_range
+                )
+            """, (selected_req, plan_id))
+            specific_classes = cursor.fetchall()
+
+            # For range-based groupings, determine which are satisfied by credit count.
+            cursor.execute("""
+                SELECT rc.class_prefix, rc.graduate_range, cg.credits AS required_credits
+                FROM Requirements_Composed_Of_Class_Groupings rc
+                JOIN Class_Groupings cg ON rc.class_prefix = cg.class_prefix AND rc.graduate_range = cg.graduate_range
+                WHERE rc.requirement_name = %s AND rc.graduate_range LIKE '%%-%%'
+            """, (selected_req,))
+            range_groupings_for_req = cursor.fetchall()
+
+            # Sort groupings by the size of the range, so more specific ranges (like 8000-8999) 
+            # consume classes before broader ranges (like 6000-9999).
+            def range_size(g):
+                start, end = map(int, g[1].split('-'))
+                return end - start
+            range_groupings_for_req.sort(key=range_size)
+
+            satisfied_range_groupings = []
+            used_classes = set()
+
+            for g_prefix, g_range, g_req_credits in range_groupings_for_req:
+                if not (g_req_credits and g_req_credits > 0):
+                    continue
+                
+                planned_credits = 0
+                start_num, end_num = map(int, g_range.split('-'))
+                for pc in plan_classes:
+                    pc_prefix, pc_number, _, pc_credits, pc_req_name, *_ = pc
+                    
+                    # Only consider classes added under THIS requirement and not yet used for a narrower grouping
+                    if pc_req_name == selected_req and (pc_prefix, pc_number) not in used_classes:
+                        if pc_prefix == g_prefix and pc_number.isdigit() and start_num <= int(pc_number) <= end_num:
+                            if pc_credits:
+                                planned_credits += pc_credits
+                                used_classes.add((pc_prefix, pc_number))
+                                
+                            # If we've hit the requirement for this grouping, stop consuming classes for it
+                            if planned_credits >= g_req_credits:
+                                break
+                
+                if planned_credits >= g_req_credits:
+                    satisfied_range_groupings.append((g_prefix, g_range))
+
+            # Fetch all possible elective classes, then filter out those from satisfied groupings or already in the plan.
+            cursor.execute("""
+                SELECT cc.class_prefix, cc.graduate_class_number AS class_number, cc.class_title, cc.credits, rc.graduate_range
+                FROM Requirements_Composed_Of_Class_Groupings rc
+                JOIN Class_Catalog cc ON rc.class_prefix = cc.class_prefix
+                WHERE rc.requirement_name = %s AND rc.graduate_range LIKE '%%-%%'
+                  AND CAST(cc.graduate_class_number AS UNSIGNED) >= CAST(SUBSTRING_INDEX(rc.graduate_range, '-', 1) AS UNSIGNED)
+                  AND CAST(cc.graduate_class_number AS UNSIGNED) <= CAST(SUBSTRING_INDEX(rc.graduate_range, '-', -1) AS UNSIGNED)
+            """, (selected_req,))
+            unfiltered_range_classes = cursor.fetchall()
+            
+            temp_range_classes = []
+            for r_class in unfiltered_range_classes:
+                c_prefix, _, _, _, c_group_range = r_class
+                if (c_prefix, c_group_range) not in satisfied_range_groupings:
+                    temp_range_classes.append(r_class[:4])
+
+            # Deduplicate classes that fall into multiple unsatisfied ranges
+            range_classes = []
+            seen_range_classes = set()
+            for rc in temp_range_classes:
+                class_id = (rc[0], rc[1])
+                if class_id not in plan_class_prefix_num and class_id not in seen_range_classes:
+                    range_classes.append(rc)
+                    seen_range_classes.add(class_id)
+
+            classes = specific_classes + range_classes
+            classes.sort(key=lambda x: (x[0], x[1]))
 
         # 4. Check for exclusive option selection
         exclusive_options = {
@@ -328,18 +443,34 @@ def edit_plan(plan_id):
             'Project Option': [('CSC', '8930'), ('CSC', '8940')],
             'Course Only Option': [('CSC', '8901')]
         }
-        plan_class_tuples = [(pc[0], pc[1]) for pc in plan_classes]
 
         for option, classes_in_option in exclusive_options.items():
-            if any(cls in plan_class_tuples for cls in classes_in_option):
+            if any(cls in plan_class_prefix_num for cls in classes_in_option):
                 chosen_exclusive_option = option
                 break
-        
+
+        # 5. Group classes by requirement, calculating planned credits and adding placeholders
+        for req_name in requirements:
+            plan_classes_grouped[req_name] = []
+
         for pc in plan_classes:
             req_name = pc[4]
-            if req_name not in plan_classes_grouped:
-                plan_classes_grouped[req_name] = []
-            plan_classes_grouped[req_name].append(pc)
+            credits = pc[3]
+            if req_name in plan_classes_grouped:
+                plan_classes_grouped[req_name].append(pc)
+                if credits and requirements_info.get(req_name):
+                    requirements_info[req_name]['planned_credits'] += credits
+        
+        for req_name, req_info in requirements_info.items():
+            total = req_info.get('total_credits') or 0
+            if total > 0:
+                remaining_credits = total - req_info['planned_credits']
+                if remaining_credits > 0:
+                    # (prefix, number, title, credits, req_name, taken_planned, semester, year, grade, is_placeholder)
+                    placeholder = ('TBD', '', f'{remaining_credits} credits remaining to be planned',
+                                   remaining_credits, req_name, 0, 'Needed', None, None, 1)
+                    if req_name in plan_classes_grouped:
+                        plan_classes_grouped[req_name].append(placeholder)
 
     except Exception as e:
         print(f"Error fetching plan details: {e}")
@@ -484,6 +615,10 @@ def edit_program():
         
         cursor.execute("SELECT requirement_name FROM Requirements ORDER BY requirement_name ASC")
         all_requirements = [row[0] for row in cursor.fetchall()]
+        
+        # Fetch all available class groupings for global management and dropdowns
+        cursor.execute("SELECT class_prefix, graduate_range, credits FROM Class_Groupings")
+        all_classes = cursor.fetchall()
 
         if major and degree:
             # Fetch requirements for this program
@@ -499,10 +634,6 @@ def edit_program():
                     WHERE rc.requirement_name = %s
                 """, (selected_req,))
                 classes = cursor.fetchall()
-                
-                # Fetch all available class groupings to provide a list to add from
-                cursor.execute("SELECT class_prefix, graduate_range, credits FROM Class_Groupings")
-                all_classes = cursor.fetchall()
                 
                 # Fetch all catalog classes
                 cursor.execute("SELECT class_prefix, graduate_class_number, credits, class_title FROM Class_Catalog")
@@ -584,10 +715,24 @@ def add_grouping():
     degree = request.form.get('degree')
     requirement = request.form.get('requirement')
     
-    class_data = request.form.get('class_data', '').split('|')
-    class_prefix = class_data[0] if len(class_data) > 0 else ''
-    graduate_range = class_data[1] if len(class_data) > 1 else ''
-    credits = class_data[2] if len(class_data) > 2 else None
+    class_data = request.form.get('class_data')
+    new_prefix = request.form.get('new_class_prefix')
+    new_range = request.form.get('new_graduate_range')
+    new_credits = request.form.get('new_credits')
+    
+    class_prefix = ''
+    graduate_range = ''
+    credits = None
+    
+    if class_data:
+        parts = class_data.split('|')
+        class_prefix = parts[0] if len(parts) > 0 else ''
+        graduate_range = parts[1] if len(parts) > 1 else ''
+        credits = parts[2] if len(parts) > 2 else None
+    elif new_prefix and new_range:
+        class_prefix = new_prefix.upper().strip()
+        graduate_range = new_range.strip()
+        credits = new_credits if new_credits else None
 
     if requirement and class_prefix and graduate_range:
         conn = None
@@ -641,6 +786,106 @@ def remove_grouping():
                 conn.close()
 
     return redirect(url_for('edit_program', major=major, degree=degree, requirement=requirement))
+
+@app.route('/delete-requirement-global', methods=['POST'])
+def delete_requirement_global():
+    major = request.form.get('major')
+    degree = request.form.get('degree')
+    requirement = request.form.get('requirement')
+
+    if requirement:
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Check if requirement is used by any program
+            cursor.execute("SELECT 1 FROM Program_Has_Requirements WHERE requirement_name = %s LIMIT 1", (requirement,))
+            if not cursor.fetchone():
+                # Requirement is not in use, safe to delete
+                cursor.execute("DELETE FROM Requirements_Composed_Of_Class_Groupings WHERE requirement_name = %s", (requirement,))
+                cursor.execute("DELETE FROM Requirements WHERE requirement_name = %s", (requirement,))
+                conn.commit()
+            else:
+                print(f"Cannot delete requirement '{requirement}' because it is in use by one or more programs.")
+        except Exception as e:
+            print(f"Error deleting requirement from db: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+
+    if major and degree:
+        return redirect(url_for('edit_program', major=major, degree=degree))
+    return redirect(url_for('edit_program'))
+
+@app.route('/delete-grouping-global', methods=['POST'])
+def delete_grouping_global():
+    major = request.form.get('major')
+    degree = request.form.get('degree')
+    grouping_data = request.form.get('grouping')
+
+    if grouping_data:
+        parts = grouping_data.split('|')
+        if len(parts) >= 2:
+            class_prefix = parts[0]
+            graduate_range = parts[1]
+            
+            conn = None
+            cursor = None
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Check if grouping is used by any requirement
+                cursor.execute("SELECT 1 FROM Requirements_Composed_Of_Class_Groupings WHERE class_prefix = %s AND graduate_range = %s LIMIT 1", (class_prefix, graduate_range))
+                if not cursor.fetchone():
+                    # Grouping is not in use, safe to delete
+                    cursor.execute("DELETE FROM Class_Groupings WHERE class_prefix = %s AND graduate_range = %s", (class_prefix, graduate_range))
+                    conn.commit()
+                else:
+                    print(f"Cannot delete grouping '{class_prefix} {graduate_range}' because it is in use by one or more requirements.")
+            except Exception as e:
+                print(f"Error deleting grouping from db: {e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn and conn.is_connected():
+                    conn.close()
+
+    if major and degree:
+        return redirect(url_for('edit_program', major=major, degree=degree))
+    return redirect(url_for('edit_program'))
+
+@app.route('/delete-program', methods=['POST'])
+def delete_program():
+    major = request.form.get('major')
+    degree = request.form.get('degree')
+    admin_password = request.form.get('admin_password')
+
+    # Basic administrator protection
+    if admin_password != os.environ.get('ADMIN_PASSWORD', 'admin'):
+        return "Unauthorized: Incorrect admin password.", 403
+
+    if major and degree:
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM Program WHERE major = %s AND degree = %s", (major, degree))
+            conn.commit()
+        except Exception as e:
+            print(f"Error deleting program: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+
+    return redirect(url_for('edit_program'))
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)

@@ -109,23 +109,27 @@
                     {% for req_name, classes_in_req in plan_classes.items() %}
                         <h3 style="margin-bottom: 5px; margin-top: 20px;">{{ req_name }}</h3>
                         <ul>
-                        {% for prefix, number, title, credits, _, taken_planned, semester, year, grade in classes_in_req %}
-                            <li style="margin-bottom: 5px;">
-                                {{ prefix }} {{ number }} 
-                                {% if title %}- {{ title }} ({{ credits }} Credits){% else %}- Elective Range{% endif %}
-                                | {{ 'Taken' if taken_planned else 'Planned' }} {{ semester }} {{ year }}
-                                {% if grade %}| Grade: {{ grade }}{% endif %}
-                                <form action="/remove-class" method="POST" style="display:inline;">
-                                    <input type="hidden" name="plan_id" value="{{ plan_id }}">
-                                    <input type="hidden" name="major" value="{{ major }}">
-                                    <input type="hidden" name="degree" value="{{ degree }}">
-                                    <input type="hidden" name="requirement" value="{{ selected_req or '' }}">
-                                    <input type="hidden" name="class_prefix" value="{{ prefix }}">
-                                    <input type="hidden" name="class_number" value="{{ number }}">
-                                    <button type="submit" style="color: red; margin-left: 10px;">Remove</button>
-                                </form>
-                            </li>
-                        {% endfor %}
+                            {% for prefix, number, title, credits, _, taken_planned, semester, year, grade, is_placeholder in classes_in_req %}
+                                <li style="margin-bottom: 5px; {% if is_placeholder %}color: #888; font-style: italic;{% endif %}">
+                                    {% if is_placeholder %}
+                                        {{ title }}
+                                    {% else %}
+                                        {{ prefix }} {{ number }} 
+                                        {% if title %}- {{ title }} ({{ credits }} Credits){% else %}- Elective Range{% endif %}
+                                        | {{ 'Taken' if taken_planned else 'Planned' }} {{ semester }} {{ year }}
+                                        {% if grade %}| Grade: {{ grade }}{% endif %}
+                                        <form action="/remove-class" method="POST" style="display:inline;">
+                                            <input type="hidden" name="plan_id" value="{{ plan_id }}">
+                                            <input type="hidden" name="major" value="{{ major }}">
+                                            <input type="hidden" name="degree" value="{{ degree }}">
+                                            <input type="hidden" name="requirement" value="{{ selected_req or '' }}">
+                                            <input type="hidden" name="class_prefix" value="{{ prefix }}">
+                                            <input type="hidden" name="class_number" value="{{ number }}">
+                                            <button type="submit" style="color: red; margin-left: 10px;">Remove</button>
+                                        </form>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
                         </ul>
                     {% endfor %}
                 {% else %}
