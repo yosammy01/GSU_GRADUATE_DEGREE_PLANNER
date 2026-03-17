@@ -217,23 +217,29 @@ def view_plan():
                 is_satisfied = False
                 if g_req_credits is None:
                     for el in elements:
-                        if (el['class_prefix'], str(el['min_class_number'])) in plan_class_ids:
-                            is_satisfied = True
+                        for pc_prefix, pc_number in plan_class_ids:
+                            if pc_prefix == el['class_prefix'] and pc_number.isdigit() and int(el['min_class_number']) <= int(pc_number) <= int(el['max_class_number']):
+                                is_satisfied = True
+                                break
+                        if is_satisfied:
                             break
                 elif g_req_credits > 0:
                     planned_credits = 0
                     for pc in plan_classes_rows:
                         if pc['requirement_name'] == req_name and pc['credits']:
                             for el in elements:
-                                if pc['class_prefix'] == el['class_prefix'] and pc['class_number'].isdigit() and el['min_class_number'] <= int(pc['class_number']) <= el['max_class_number']:
+                                if pc['class_prefix'] == el['class_prefix'] and pc['class_number'].isdigit() and int(el['min_class_number']) <= int(pc['class_number']) <= int(el['max_class_number']):
                                     planned_credits += pc['credits']
                                     break
                     if planned_credits >= g_req_credits:
                         is_satisfied = True
                 else: # e.g. 0 credits
                     for el in elements:
-                        if (el['class_prefix'], str(el['min_class_number'])) in plan_class_ids:
-                            is_satisfied = True
+                        for pc_prefix, pc_number in plan_class_ids:
+                            if pc_prefix == el['class_prefix'] and pc_number.isdigit() and int(el['min_class_number']) <= int(pc_number) <= int(el['max_class_number']):
+                                is_satisfied = True
+                                break
+                        if is_satisfied:
                             break
 
                 if not is_satisfied:
@@ -457,12 +463,15 @@ def edit_plan(plan_id):
                 """, (g_id,))
                 elements = cursor.fetchall()
 
-                # Case A: "Pick One" grouping (where credits is NULL in the DB)
-                if g_req_credits is None:
+                # Case A: "Pick One" grouping (where credits is NULL or 0 in the DB)
+                if g_req_credits is None or g_req_credits == 0:
                     for el_prefix, el_min, el_max in elements:
-                        if (el_prefix, str(el_min)) in plan_class_ids:
-                            satisfied_pick_one_groupings.add(g_id)
-                            break # Grouping is satisfied, no need to check other elements
+                        for pc_prefix, pc_number in plan_class_ids:
+                            if pc_prefix == el_prefix and pc_number.isdigit() and int(el_min) <= int(pc_number) <= int(el_max):
+                                satisfied_pick_one_groupings.add(g_id)
+                                break
+                        if g_id in satisfied_pick_one_groupings:
+                            break
 
                 # Case B: Credit-accumulation grouping
                 elif g_req_credits > 0:
@@ -471,7 +480,7 @@ def edit_plan(plan_id):
                         pc_prefix, pc_number, _, pc_credits, pc_req_name, *_ = pc
                         if pc_req_name == selected_req and pc_credits:
                             for el_prefix, el_min, el_max in elements:
-                                if pc_prefix == el_prefix and pc_number.isdigit() and el_min <= int(pc_number) <= el_max:
+                                if pc_prefix == el_prefix and pc_number.isdigit() and int(el_min) <= int(pc_number) <= int(el_max):
                                     planned_credits += pc_credits
                                     break # Class matched, move to next planned class
                     if planned_credits >= g_req_credits:
@@ -491,13 +500,12 @@ def edit_plan(plan_id):
                         cc.class_prefix,
                         cc.graduate_class_number,
                         cc.class_title,
-                        cc.credits
+                        COALESCE(cc.credits, 0) AS credits
                     FROM Class_Grouping_Elements cge
                     JOIN Class_Catalog cc ON cge.class_prefix = cc.class_prefix
-                        AND CAST(cc.graduate_class_number AS UNSIGNED) >= cge.min_class_number
-                        AND CAST(cc.graduate_class_number AS UNSIGNED) <= cge.max_class_number
+                        AND CAST(cc.graduate_class_number AS UNSIGNED) >= CAST(cge.min_class_number AS UNSIGNED)
+                        AND CAST(cc.graduate_class_number AS UNSIGNED) <= CAST(cge.max_class_number AS UNSIGNED)
                     WHERE cge.grouping_id = %s
-                      AND (cge.min_class_number = cge.max_class_number OR COALESCE(cc.credits, 0) > 0)
                 """, (g_id,))
                 
                 for p_class in cursor.fetchall():
@@ -620,8 +628,12 @@ def add_class():
         year_val = int(year) if year and year.isdigit() else None
         grade_val = grade if grade else None
         
+        orig_credits_val = 0
+        if original_credits and original_credits != 'None' and original_credits.isdigit():
+            orig_credits_val = int(original_credits)
+
         credits_to_insert = None
-        if manual_credits and manual_credits.isdigit() and int(original_credits) == 0:
+        if manual_credits and manual_credits.isdigit() and orig_credits_val == 0:
             credits_to_insert = int(manual_credits)
         
         conn = None
@@ -703,7 +715,7 @@ def edit_program():
         all_requirements = [row[0] for row in cursor.fetchall()]
         
         # Fetch all available class groupings for global management and dropdowns
-        cursor.execute("SELECT class_prefix, graduate_range, credits FROM Class_Groupings")
+        cursor.execute("SELECT grouping_id, grouping_name, credits FROM Class_Groupings")
         all_classes = cursor.fetchall()
 
         if major and degree:
@@ -795,6 +807,32 @@ def add_requirement_to_program():
             
     return redirect(url_for('edit_program', major=major, degree=degree, requirement=req_to_add))
 
+@app.route('/remove-requirement-from-program', methods=['POST'])
+def remove_requirement_from_program():
+    major = request.form.get('major')
+    degree = request.form.get('degree')
+    requirement = request.form.get('requirement')
+
+    if major and degree and requirement:
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM Program_Has_Requirements WHERE major = %s AND degree = %s AND requirement_name = %s",
+                           (major, degree, requirement))
+            conn.commit()
+        except Exception as e:
+            print(f"Error removing requirement from program: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+
+    # We deliberately omit 'requirement' here so the page resets the selected requirement dropdown
+    return redirect(url_for('edit_program', major=major, degree=degree))
+
 @app.route('/add-grouping', methods=['POST'])
 def add_grouping():
     major = request.form.get('major')
@@ -807,45 +845,49 @@ def add_grouping():
     new_credits = request.form.get('new_credits')
     grouping_name = request.form.get('grouping_name')
     
-    class_prefix = ''
-    graduate_range = ''
-    credits = None
-    
-    if class_data:
-        parts = class_data.split('|')
-        class_prefix = parts[0] if len(parts) > 0 else ''
-        graduate_range = parts[1] if len(parts) > 1 else ''
-        credits = parts[2] if len(parts) > 2 else None
-    elif new_prefix and new_range:
-        class_prefix = new_prefix.upper().strip()
-        graduate_range = new_range.strip()
-        credits = new_credits if new_credits else None
-
-    if requirement and grouping_name:
+    if requirement:
         conn = None
         cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Insert into Class_Groupings table
-            cursor.execute("INSERT INTO Class_Groupings (grouping_name, credits) VALUES (%s, %s)",
-                           (grouping_name, credits))
-            grouping_id = cursor.lastrowid
+            grouping_id_to_link = None
 
-            # Insert into Class_Grouping_Elements table
-            # Assuming new_range is a single value for simplicity
-            if new_prefix and new_range:
+            if class_data and class_data.startswith("GROUPING|"):
+                grouping_id_to_link = class_data.split('|')[1]
+                
+            elif class_data and class_data.startswith("CATALOG|"):
+                parts = class_data.split('|')
+                cat_prefix = parts[1]
+                cat_number = parts[2]
+                cat_credits = parts[3] if parts[3] != 'None' and parts[3] != '' else None
+                
+                g_name = grouping_name if grouping_name else f"{cat_prefix} {cat_number}"
+                cursor.execute("INSERT INTO Class_Groupings (grouping_name, credits) VALUES (%s, %s)", (g_name, cat_credits))
+                grouping_id_to_link = cursor.lastrowid
+                
                 cursor.execute("INSERT INTO Class_Grouping_Elements (grouping_id, class_prefix, min_class_number, max_class_number) VALUES (%s, %s, %s, %s)",
-                               (grouping_id, new_prefix, new_range, new_range))
+                               (grouping_id_to_link, cat_prefix, cat_number, cat_number))
                                
-            # Insert into Requirements_Composed_Of_Class_Groupings table
-            cursor.execute("INSERT INTO Requirements_Composed_Of_Class_Groupings (requirement_name, grouping_id) VALUES (%s, %s)",
-                           (requirement, grouping_id))
-            
-            # Commit the changes
-            
-            conn.commit()
+            elif grouping_name:
+                cursor.execute("INSERT INTO Class_Groupings (grouping_name, credits) VALUES (%s, %s)",
+                               (grouping_name, new_credits if new_credits != '' else None))
+                grouping_id_to_link = cursor.lastrowid
+                
+                if new_prefix and new_range:
+                    min_c, max_c = new_range.strip(), new_range.strip()
+                    if '-' in new_range:
+                        r_parts = new_range.split('-')
+                        if len(r_parts) == 2 and r_parts[0].strip().isdigit() and r_parts[1].strip().isdigit():
+                            min_c, max_c = r_parts[0].strip(), r_parts[1].strip()
+                    cursor.execute("INSERT INTO Class_Grouping_Elements (grouping_id, class_prefix, min_class_number, max_class_number) VALUES (%s, %s, %s, %s)",
+                                   (grouping_id_to_link, new_prefix.upper().strip(), min_c, max_c))
+                                   
+            if grouping_id_to_link:
+                cursor.execute("INSERT IGNORE INTO Requirements_Composed_Of_Class_Groupings (requirement_name, grouping_id) VALUES (%s, %s)",
+                               (requirement, grouping_id_to_link))
+                conn.commit()
         except Exception as e:
             print(f"Error adding grouping: {e}")
         finally:
@@ -942,7 +984,7 @@ def delete_grouping_global():
                     cursor.execute("DELETE FROM Class_Groupings WHERE grouping_id = %s", (grouping_id,))
                     conn.commit()                    
                 else:
-                    print(f"Cannot delete grouping '{class_prefix} {graduate_range}' because it is in use by one or more requirements.")
+                    print(f"Cannot delete grouping '{grouping_name}' because it is in use by one or more requirements.")
             except Exception as e:
                 print(f"Error deleting grouping from db: {e}")
             finally:

@@ -56,6 +56,15 @@
                 <button type="submit">View Groupings</button>
             </form>
             
+            {% if selected_req %}
+            <form action="/remove-requirement-from-program" method="POST" style="margin-top: 10px;" onsubmit="return confirm('Are you sure you want to remove this requirement from the program?');">
+                <input type="hidden" name="major" value="{{ major }}">
+                <input type="hidden" name="degree" value="{{ degree }}">
+                <input type="hidden" name="requirement" value="{{ selected_req }}">
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer;">Remove Requirement from Program</button>
+            </form>
+            {% endif %}
+
             <h3 style="margin-top: 15px;">Or Add a Requirement to this Program</h3>
             <form action="/add-requirement-to-program" method="POST">
                 <input type="hidden" name="major" value="{{ major }}">
@@ -87,8 +96,6 @@
                     <option value="F">F</option>
                     <option value="S">S (Satisfactory)</option>
                     <option value="U">U (Unsatisfactory)</option>
-                    <option value="P">P (Pass)</option>
-                    <option value="NP">NP (No Pass)</option>
                 </select>
                 <button type="submit" style="margin-left: 10px;">Add Requirement to Program</button>
             </form>
@@ -109,13 +116,13 @@
                 <select name="class_data">
                     <option value="">-- Choose Existing --</option>
                     <optgroup label="Existing Groupings">
-                        {% for prefix, range_val, credits in all_classes %}
-                            <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
+                        {% for grouping_id, grouping_name, credits in all_classes %}
+                            <option value="GROUPING|{{ grouping_id }}">{{ grouping_name }} ({{ credits }} Credits)</option>
                         {% endfor %}
                     </optgroup>
                     <optgroup label="Class Catalog">
                         {% for prefix, number, credits, title in all_catalog_classes %}
-                            <option value="{{ prefix }}|{{ number }}|{{ credits or 0 }}">{{ prefix }} {{ number }} - {{ title }} ({{ credits or 0 }} Credits)</option>
+                            <option value="CATALOG|{{ prefix }}|{{ number }}|{{ credits or 0 }}">{{ prefix }} {{ number }} - {{ title }} ({{ credits or 0 }} Credits)</option>
                         {% endfor %}
                     </optgroup>
                 </select>
@@ -126,8 +133,11 @@
                 <!-- Option 2: Create New -->
                 <label><strong>Create New Grouping:</strong></label>
                 <p style="font-size: 0.9em; color: #555; margin-top: 5px; margin-bottom: 10px;">
-                    <em>Guidance: <strong>Prefix</strong> must be a string (e.g. CSC). <strong>Range</strong> can be a specific number (e.g. 8900) or a dash-separated range (e.g. 6000-9999). <strong>Credits</strong> is numeric.</em>
+                    <em>Guidance: <strong>Prefix</strong> must be a string (e.g. CSC). <strong>Range</strong> can be a specific number (e.g. 8900) or a dash-separated range (e.g. 6000-9999). <strong>Credits</strong> is numeric (enter 0 for a variable credit class).</em>
                 </p>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" name="grouping_name" placeholder="Grouping Name (e.g. Core)" style="width: 250px;">
+                </div>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" name="new_class_prefix" placeholder="Prefix (e.g. CSC)" style="width: 120px;">
                     <input type="text" name="new_graduate_range" placeholder="Range (e.g. 6000-9999)" style="width: 160px;">
@@ -141,15 +151,14 @@
             <h3>Current Class Groupings</h3>
             {% if classes %}
                 <ul>
-                {% for prefix, range_val, credits in classes %}
+                {% for grouping_id, grouping_name, credits in classes %}
                     <li style="margin-bottom: 5px;">
-                        {{ prefix }} {{ range_val }} ({{ credits }} Credits)
+                        {{ grouping_name }} ({{ credits }} Credits)
                         <form action="/remove-grouping" method="POST" style="display:inline;">
                             <input type="hidden" name="major" value="{{ major }}">
                             <input type="hidden" name="degree" value="{{ degree }}">
                             <input type="hidden" name="requirement" value="{{ selected_req }}">
-                            <input type="hidden" name="class_prefix" value="{{ prefix }}">
-                            <input type="hidden" name="graduate_range" value="{{ range_val }}">
+                            <input type="hidden" name="grouping_id" value="{{ grouping_id }}">
                             <button type="submit" style="color: red; margin-left: 10px;">Remove</button>
                         </form>
                     </li>
@@ -186,8 +195,8 @@
                 
                 <select name="grouping" required>
                     <option value="" disabled selected>-- Select Grouping --</option>
-                    {% for prefix, range_val, credits in all_classes %}
-                        <option value="{{ prefix }}|{{ range_val }}">{{ prefix }} {{ range_val }} ({{ credits }} Credits)</option>
+                    {% for grouping_id, grouping_name, credits in all_classes %}
+                        <option value="{{ grouping_id }}|{{ grouping_name }}">{{ grouping_name }} ({{ credits }} Credits)</option>
                     {% endfor %}
                 </select>
                 <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
