@@ -812,6 +812,11 @@ def remove_requirement_from_program():
     major = request.form.get('major')
     degree = request.form.get('degree')
     requirement = request.form.get('requirement')
+    admin_password = request.form.get('admin_password')
+
+    # Basic administrator protection
+    if admin_password != os.environ.get('ADMIN_PASSWORD', 'admin'):
+        return "Unauthorized: Incorrect admin password.", 403
 
     if major and degree and requirement:
         conn = None
@@ -864,6 +869,12 @@ def add_grouping():
                 cat_credits = parts[3] if parts[3] != 'None' and parts[3] != '' else None
                 
                 g_name = grouping_name if grouping_name else f"{cat_prefix} {cat_number}"
+                
+                # Check if grouping name already exists
+                cursor.execute("SELECT grouping_id FROM Class_Groupings WHERE grouping_name = %s", (g_name,))
+                if cursor.fetchone():
+                    return f"Error: A grouping with the name '{g_name}' already exists. Please choose a different name.", 400
+
                 cursor.execute("INSERT INTO Class_Groupings (grouping_name, credits) VALUES (%s, %s)", (g_name, cat_credits))
                 grouping_id_to_link = cursor.lastrowid
                 
@@ -871,6 +882,11 @@ def add_grouping():
                                (grouping_id_to_link, cat_prefix, cat_number, cat_number))
                                
             elif grouping_name:
+                # Check if grouping name already exists
+                cursor.execute("SELECT grouping_id FROM Class_Groupings WHERE grouping_name = %s", (grouping_name,))
+                if cursor.fetchone():
+                    return f"Error: A grouping with the name '{grouping_name}' already exists. Please choose a different name.", 400
+
                 cursor.execute("INSERT INTO Class_Groupings (grouping_name, credits) VALUES (%s, %s)",
                                (grouping_name, new_credits if new_credits != '' else None))
                 grouping_id_to_link = cursor.lastrowid
@@ -930,6 +946,11 @@ def delete_requirement_global():
     major = request.form.get('major')
     degree = request.form.get('degree')
     requirement = request.form.get('requirement')
+    admin_password = request.form.get('admin_password')
+
+    # Basic administrator protection
+    if admin_password != os.environ.get('ADMIN_PASSWORD', 'admin'):
+        return "Unauthorized: Incorrect admin password.", 403
 
     if requirement:
         conn = None
@@ -964,6 +985,11 @@ def delete_grouping_global():
     major = request.form.get('major')
     degree = request.form.get('degree')
     grouping_data = request.form.get('grouping')
+    admin_password = request.form.get('admin_password')
+
+    # Basic administrator protection
+    if admin_password != os.environ.get('ADMIN_PASSWORD', 'admin'):
+        return "Unauthorized: Incorrect admin password.", 403
 
     if grouping_data:
         parts = grouping_data.split('|')

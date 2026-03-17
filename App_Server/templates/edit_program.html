@@ -42,7 +42,7 @@
         </section>
 
         {% if major and degree %}
-        <section style="margin-top: 20px;">
+        <section style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
             <h2>2. Select a Requirement</h2>
             <form action="/edit-program" method="GET">
                 <input type="hidden" name="major" value="{{ major }}">
@@ -61,6 +61,7 @@
                 <input type="hidden" name="major" value="{{ major }}">
                 <input type="hidden" name="degree" value="{{ degree }}">
                 <input type="hidden" name="requirement" value="{{ selected_req }}">
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-right: 10px;">
                 <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer;">Remove Requirement from Program</button>
             </form>
             {% endif %}
@@ -103,7 +104,7 @@
         {% endif %}
 
         {% if selected_req %}
-        <section style="margin-top: 20px;">
+        <section style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
             <h2>3. Edit Groupings for {{ selected_req }}</h2>
             
             <form action="/add-grouping" method="POST" style="margin-bottom: 20px;">
@@ -184,6 +185,7 @@
                         <option value="{{ req }}">{{ req }}</option>
                     {% endfor %}
                 </select>
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
                 <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
             </form>
 
@@ -199,6 +201,7 @@
                         <option value="{{ grouping_id }}|{{ grouping_name }}">{{ grouping_name }} ({{ credits }} Credits)</option>
                     {% endfor %}
                 </select>
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
                 <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
             </form>
         </section>

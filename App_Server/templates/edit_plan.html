@@ -56,7 +56,7 @@
             </section>
 
             {% if selected_req %}
-            <section style="margin-top: 20px;">
+            <section style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
                 <h2>2. Add a Class to {{ selected_req }}</h2>
                 <form action="/add-class" method="POST">
                     <input type="hidden" name="plan_id" value="{{ plan_id }}">
