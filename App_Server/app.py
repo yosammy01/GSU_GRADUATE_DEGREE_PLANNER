@@ -95,8 +95,13 @@ def hello():
 def view_plan():
     """Handles the form submission from the main page to view a plan."""
     plan_id = request.form.get('plan_id')
+    student_id = request.form.get('student_id')
+    student_name = request.form.get('student_name')
+
     if not plan_id:
         return redirect(url_for('hello'))
+    if not student_id or not student_name:
+        return "Student ID and Name are required to view a plan.", 400
 
     plan_details = {}
     classes_by_req = {}
@@ -105,6 +110,20 @@ def view_plan():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
+
+        # Verify the student matches the chosen plan
+        cursor.execute("""
+            SELECT s.id, s.name 
+            FROM Student s
+            JOIN Student_Plans_Plan spp ON s.id = spp.id
+            WHERE spp.plan_id = %s
+        """, (plan_id,))
+        student_info = cursor.fetchone()
+        
+        if not student_info:
+            return "No student associated with this plan.", 404
+        if student_info['id'].lower() != student_id.lower() or student_info['name'].lower() != student_name.lower():
+            return "The entered Student ID or Name does not match the chosen plan's student.", 403
 
         # 1. Fetch plan details (major, degree)
         cursor.execute("SELECT major, degree FROM Plan WHERE plan_id = %s", (plan_id,))
@@ -283,12 +302,27 @@ def view_plan():
 def delete_plan():
     """Deletes a selected plan from the database."""
     plan_id = request.form.get('plan_id')
-    if plan_id:
+    student_id = request.form.get('student_id')
+    student_name = request.form.get('student_name')
+
+    if plan_id and student_id and student_name:
         conn = None
         cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT s.id, s.name 
+                FROM Student s
+                JOIN Student_Plans_Plan spp ON s.id = spp.id
+                WHERE spp.plan_id = %s
+            """, (plan_id,))
+            student_info = cursor.fetchone()
+            
+            if not student_info or student_info[0].lower() != student_id.lower() or student_info[1].lower() != student_name.lower():
+                return "The entered Student ID or Name does not match the chosen plan's student. Deletion denied.", 403
+
             cursor.execute("DELETE FROM Plan WHERE plan_id = %s", (plan_id,))
             conn.commit()
         except Exception as e:
@@ -311,8 +345,11 @@ def create_plan():
         major = program_data[0] if len(program_data) > 0 else None
         degree = program_data[1] if len(program_data) > 1 else None
         
-        if not original_plan_id or not major or not degree:
-            return "Plan ID and a valid Program selection are required. Please go back and try again.", 400
+        student_id = request.form.get('student_id')
+        student_name = request.form.get('student_name')
+
+        if not original_plan_id or not major or not degree or not student_id or not student_name:
+            return "Plan ID, a valid Program selection, Student ID, and Student Name are required. Please go back and try again.", 400
 
         final_plan_id = original_plan_id
 
@@ -335,7 +372,13 @@ def create_plan():
                         break
                     counter += 1
 
+            # Insert student details into the Student table
+            cursor.execute("INSERT IGNORE INTO Student (id, name) VALUES (%s, %s)", (student_id, student_name))
+
             cursor.execute("INSERT INTO Plan (plan_id, major, degree) VALUES (%s, %s, %s)", (final_plan_id, major, degree))
+            
+            # Link the student to the created plan
+            cursor.execute("INSERT INTO Student_Plans_Plan (id, plan_id) VALUES (%s, %s)", (student_id, final_plan_id))
             conn.commit()
         except Exception as e:
             print(f"Error creating plan: {e}")
@@ -717,6 +760,10 @@ def edit_program():
         # Fetch all available class groupings for global management and dropdowns
         cursor.execute("SELECT grouping_id, grouping_name, credits FROM Class_Groupings")
         all_classes = cursor.fetchall()
+        
+        # Fetch all catalog classes globally
+        cursor.execute("SELECT class_prefix, graduate_class_number, credits, class_title FROM Class_Catalog ORDER BY class_prefix, graduate_class_number")
+        all_catalog_classes = cursor.fetchall()
 
         if major and degree:
             # Fetch requirements for this program
@@ -733,10 +780,6 @@ def edit_program():
                 """, (selected_req,))
                 classes = cursor.fetchall()
                 
-                # Fetch all catalog classes
-                cursor.execute("SELECT class_prefix, graduate_class_number, credits, class_title FROM Class_Catalog")
-                all_catalog_classes = cursor.fetchall()
-
     except Exception as e:
         print(f"Error fetching program details: {e}")        
     finally:
@@ -749,6 +792,37 @@ def edit_program():
                            requirements=requirements, selected_req=selected_req,                           
                            classes=classes, all_classes=all_classes, all_requirements=all_requirements,
                            all_catalog_classes=all_catalog_classes)
+
+@app.route('/global-management', methods=['GET'])
+def global_management():
+    """Displays the page for managing global requirements, groupings, and catalog classes."""
+    all_classes = []
+    all_requirements = []
+    all_catalog_classes = []
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT requirement_name FROM Requirements ORDER BY requirement_name ASC")
+        all_requirements = [row[0] for row in cursor.fetchall()]
+        
+        cursor.execute("SELECT grouping_id, grouping_name, credits FROM Class_Groupings")
+        all_classes = cursor.fetchall()
+        
+        cursor.execute("SELECT class_prefix, graduate_class_number, credits, class_title FROM Class_Catalog ORDER BY class_prefix, graduate_class_number")
+        all_catalog_classes = cursor.fetchall()
+    except Exception as e:
+        print(f"Error fetching global details: {e}")        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+    return render_template('global_management.html', all_classes=all_classes, all_requirements=all_requirements, all_catalog_classes=all_catalog_classes)
 
 @app.route('/create-program', methods=['POST'])
 def create_program():
@@ -943,8 +1017,6 @@ def remove_grouping():
 
 @app.route('/delete-requirement-global', methods=['POST'])
 def delete_requirement_global():
-    major = request.form.get('major')
-    degree = request.form.get('degree')
     requirement = request.form.get('requirement')
     admin_password = request.form.get('admin_password')
 
@@ -976,14 +1048,10 @@ def delete_requirement_global():
             if conn and conn.is_connected():
                 conn.close()
 
-    if major and degree:
-        return redirect(url_for('edit_program', major=major, degree=degree))
-    return redirect(url_for('edit_program'))
+    return redirect(url_for('global_management'))
 
 @app.route('/delete-grouping-global', methods=['POST'])
 def delete_grouping_global():
-    major = request.form.get('major')
-    degree = request.form.get('degree')
     grouping_data = request.form.get('grouping')
     admin_password = request.form.get('admin_password')
 
@@ -1019,9 +1087,7 @@ def delete_grouping_global():
                 if conn and conn.is_connected():
                     conn.close()
 
-    if major and degree:
-        return redirect(url_for('edit_program', major=major, degree=degree))
-    return redirect(url_for('edit_program'))
+    return redirect(url_for('global_management'))
 
 @app.route('/delete-program', methods=['POST'])
 def delete_program():
@@ -1050,6 +1116,79 @@ def delete_program():
                 conn.close()
 
     return redirect(url_for('edit_program'))
+
+@app.route('/add-class-to-catalog', methods=['POST'])
+def add_class_to_catalog():
+    class_prefix = request.form.get('class_prefix')
+    class_number = request.form.get('class_number')
+    class_title = request.form.get('class_title')
+    credits = request.form.get('credits')
+    admin_password = request.form.get('admin_password')
+
+    if admin_password != os.environ.get('ADMIN_PASSWORD', 'admin'):
+        return "Unauthorized: Incorrect admin password.", 403
+
+    if class_prefix and class_number:
+        conn = None
+        cursor = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("INSERT IGNORE INTO Class (class_prefix, class_number) VALUES (%s, %s)", (class_prefix.upper(), class_number))
+            
+            credits_val = int(credits) if credits and credits.isdigit() else None
+            cursor.execute("""
+                INSERT IGNORE INTO Class_Catalog (class_prefix, graduate_class_number, class_title, credits) 
+                VALUES (%s, %s, %s, %s)
+            """, (class_prefix.upper(), class_number, class_title, credits_val))
+            conn.commit()
+        except Exception as e:
+            print(f"Error adding class to catalog: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and conn.is_connected():
+                conn.close()
+
+    return redirect(url_for('global_management'))
+
+@app.route('/delete-class-from-catalog', methods=['POST'])
+def delete_class_from_catalog():
+    catalog_class = request.form.get('catalog_class')
+    admin_password = request.form.get('admin_password')
+
+    if admin_password != os.environ.get('ADMIN_PASSWORD', 'admin'):
+        return "Unauthorized: Incorrect admin password.", 403
+
+    if catalog_class:
+        parts = catalog_class.split('|')
+        if len(parts) >= 2:
+            class_prefix = parts[0]
+            class_number = parts[1]
+            
+            conn = None
+            cursor = None
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                # Check if the class is used in any plan
+                cursor.execute("SELECT 1 FROM Plan_Requires_Class WHERE class_prefix = %s AND class_number = %s LIMIT 1", (class_prefix, class_number))
+                if not cursor.fetchone():
+                    cursor.execute("DELETE FROM Class_Catalog WHERE class_prefix = %s AND graduate_class_number = %s", (class_prefix, class_number))
+                    conn.commit()
+                else:
+                    print(f"Cannot delete class '{class_prefix} {class_number}' because it is in use by one or more plans.")
+            except Exception as e:
+                print(f"Error deleting class from catalog: {e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn and conn.is_connected():
+                    conn.close()
+
+    return redirect(url_for('global_management'))
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)

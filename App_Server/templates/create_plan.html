@@ -35,6 +35,15 @@
                         {% endif %}
                     </select>
                 </p>
+
+                <p>
+                    <label for="student_id">Student ID:</label><br>
+                    <input type="text" id="student_id" name="student_id" required size="40" placeholder="Enter Student ID">
+                </p>
+                <p>
+                    <label for="student_name">Student Name:</label><br>
+                    <input type="text" id="student_name" name="student_name" required size="40" placeholder="Enter Student Name">
+                </p>
             </fieldset>
             <button type="submit" {% if not programs %}disabled{% endif %}>Create Plan</button>
         </form>

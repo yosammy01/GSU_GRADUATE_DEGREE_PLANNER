@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Requirement Management</title>
+</head>
+<body>
+    <header>
+        <h1>Global Requirement Management</h1>
+        <p><a href="/">Back to Home</a></p>
+    </header>
+
+    <main>
+        <section>
+            <h3>Delete Unused Requirement</h3>
+            <p style="font-size: 0.9em; color: #555;">Requirements can only be permanently deleted if they are not currently assigned to any degree program.</p>
+            <form action="/delete-requirement-global" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this requirement from the database?');">
+                <select name="requirement" required>
+                    <option value="" disabled selected>-- Select Requirement --</option>
+                    {% for req in all_requirements %}
+                        <option value="{{ req }}">{{ req }}</option>
+                    {% endfor %}
+                </select>
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
+            </form>
+
+            <h3 style="margin-top: 25px;">Delete Unused Grouping</h3>
+            <p style="font-size: 0.9em; color: #555;">Groupings can only be permanently deleted if they are not currently assigned to any requirement.</p>
+            <form action="/delete-grouping-global" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this grouping from the database?');">
+                <select name="grouping" required>
+                    <option value="" disabled selected>-- Select Grouping --</option>
+                    {% for grouping_id, grouping_name, credits in all_classes %}
+                        <option value="{{ grouping_id }}|{{ grouping_name }}">{{ grouping_name }} ({{ credits }} Credits)</option>
+                    {% endfor %}
+                </select>
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
+            </form>
+
+            <h3 style="margin-top: 25px;">Add Class to Catalog</h3>
+            <form action="/add-class-to-catalog" method="POST">
+                <input type="text" name="class_prefix" placeholder="Prefix (e.g. CSC)" required style="width: 120px;">
+                <input type="text" name="class_number" placeholder="Number (e.g. 8900)" required style="width: 140px;">
+                <input type="text" name="class_title" placeholder="Title (e.g. Seminar)" required style="width: 200px;">
+                <input type="number" name="credits" placeholder="Credits" style="width: 100px;">
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
+                <button type="submit" style="color: white; background-color: #5cb85c; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Add Class</button>
+            </form>
+
+            <h3 style="margin-top: 25px;">Delete Class from Catalog</h3>
+            <p style="font-size: 0.9em; color: #555;">Classes can only be permanently deleted if they are not currently included in any student plans.</p>
+            <form action="/delete-class-from-catalog" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this class from the catalog?');">
+                <select name="catalog_class" required>
+                    <option value="" disabled selected>-- Select Class --</option>
+                    {% for prefix, number, credits, title in all_catalog_classes %}
+                        <option value="{{ prefix }}|{{ number }}">{{ prefix }} {{ number }} - {{ title }} ({{ credits or 0 }} Credits)</option>
+                    {% endfor %}
+                </select>
+                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
+                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete Class</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

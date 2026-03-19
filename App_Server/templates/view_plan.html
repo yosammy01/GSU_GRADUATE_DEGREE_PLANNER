@@ -21,12 +21,26 @@
         .planned-text { color: #6c757d; font-style: italic; }
         .nav-links { margin-bottom: 1em; }
         .nav-links a { margin-right: 15px; }
+        
+        @media print {
+            #print-btn { display: none !important; }
+            .nav-links { display: none !important; }
+            body { background-color: #fff; margin: 0; padding: 20px; color: #000; }
+            .requirement-group { 
+                box-shadow: none; 
+                border: 1px solid #ccc; 
+                page-break-inside: avoid; 
+                margin-bottom: 1em; 
+            }
+            a { text-decoration: none; color: #000; }
+        }
     </style>
 </head>
 <body>
     <div class="nav-links">
         <a href="{{ url_for('hello') }}">&larr; Back to Home</a>
         <a href="{{ url_for('edit_plan', plan_id=plan.plan_id) }}">Edit Plan</a>
+        <button onclick="window.print()" id="print-btn" style="padding: 5px 10px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 4px; float: right;">Print Plan</button>
     </div>
     <h1>Degree Plan: {{ plan.plan_id }}</h1>
     <h2>{{ plan.major }} - {{ plan.degree }}</h2>

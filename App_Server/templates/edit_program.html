@@ -170,41 +170,6 @@
             {% endif %}
         </section>
         {% endif %}
-        
-        <section style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
-            <h2>Global Requirement Management</h2>
-            <h3>Delete Unused Requirement</h3>
-            <p style="font-size: 0.9em; color: #555;">Requirements can only be permanently deleted if they are not currently assigned to any degree program.</p>
-            <form action="/delete-requirement-global" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this requirement from the database?');">
-                <input type="hidden" name="major" value="{{ major or '' }}">
-                <input type="hidden" name="degree" value="{{ degree or '' }}">
-                
-                <select name="requirement" required>
-                    <option value="" disabled selected>-- Select Requirement --</option>
-                    {% for req in all_requirements %}
-                        <option value="{{ req }}">{{ req }}</option>
-                    {% endfor %}
-                </select>
-                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
-                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
-            </form>
-
-            <h3 style="margin-top: 25px;">Delete Unused Grouping</h3>
-            <p style="font-size: 0.9em; color: #555;">Groupings can only be permanently deleted if they are not currently assigned to any requirement.</p>
-            <form action="/delete-grouping-global" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this grouping from the database?');">
-                <input type="hidden" name="major" value="{{ major or '' }}">
-                <input type="hidden" name="degree" value="{{ degree or '' }}">
-                
-                <select name="grouping" required>
-                    <option value="" disabled selected>-- Select Grouping --</option>
-                    {% for grouping_id, grouping_name, credits in all_classes %}
-                        <option value="{{ grouping_id }}|{{ grouping_name }}">{{ grouping_name }} ({{ credits }} Credits)</option>
-                    {% endfor %}
-                </select>
-                <input type="password" name="admin_password" placeholder="Admin Password" required style="width: 130px; margin-left: 10px;">
-                <button type="submit" style="color: white; background-color: #d9534f; border-radius: 3px; padding: 5px 10px; border: none; cursor: pointer; margin-left: 10px;">Delete from DB</button>
-            </form>
-        </section>
     </main>
 </body>
 </html>
