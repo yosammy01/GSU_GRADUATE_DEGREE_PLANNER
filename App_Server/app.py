@@ -215,6 +215,17 @@ def view_plan():
                 elements_by_grouping[g_id] = []
             elements_by_grouping[g_id].append(row)
 
+        grade_points = {
+            'A+': 4.3, 'A': 4.0, 'A-': 3.7,
+            'B+': 3.3, 'B': 3.0, 'B-': 2.7,
+            'C+': 2.3, 'C': 2.0, 'C-': 1.7,
+            'D': 1.0, 'F': 0.0
+        }
+        current_qp = 0.0
+        current_gpa_credits = 0.0
+        possible_qp = 0.0
+        possible_gpa_credits = 0.0
+
         # 4. Group planned classes by requirement and sum their credits
         for c in plan_classes_rows:
             req_name = c['requirement_name']
@@ -223,6 +234,19 @@ def view_plan():
             classes_by_req[req_name].append(c)
             if c['credits'] and req_name in requirements_info:
                 requirements_info[req_name]['planned_credits'] += c['credits']
+
+            grade = c.get('grade')
+            credits = c.get('credits')
+            if grade and isinstance(grade, str) and grade.strip().upper() in grade_points and credits:
+                pts = grade_points[grade.strip().upper()] * float(credits)
+                if c.get('taken_planned') == 1:
+                    current_qp += pts
+                    current_gpa_credits += float(credits)
+                possible_qp += pts
+                possible_gpa_credits += float(credits)
+
+        plan_details['current_gpa'] = f"{current_qp / current_gpa_credits:.2f}" if current_gpa_credits > 0 else 'N/A'
+        plan_details['possible_gpa'] = f"{possible_qp / possible_gpa_credits:.2f}" if possible_gpa_credits > 0 else 'N/A'
 
         # 5. Evaluate satisfied/unsatisfied groupings and add placeholder for remainder
         for req_name, groupings in all_groupings_by_req.items():
@@ -402,6 +426,9 @@ def edit_plan(plan_id):
     degree = request.args.get('degree')
     selected_req = request.args.get('requirement')
 
+    student_id = ""
+    student_name = ""
+
     # If major/degree are missing, the plan may not have a program assigned yet.
     if not major or not degree:
         db_major, db_degree = None, None
@@ -414,6 +441,16 @@ def edit_plan(plan_id):
             result = cursor.fetchone()
             if result:
                 db_major, db_degree = result[0], result[1]
+                
+            cursor.execute("""
+                SELECT s.id, s.name 
+                FROM Student s
+                JOIN Student_Plans_Plan spp ON s.id = spp.id
+                WHERE spp.plan_id = %s
+            """, (plan_id,))
+            student_info = cursor.fetchone()
+            if student_info:
+                student_id, student_name = student_info[0], student_info[1]
         except Exception as e:
             print(f"Error checking plan program: {e}")
             return "Error loading plan.", 500
@@ -431,7 +468,8 @@ def edit_plan(plan_id):
         else:
             programs = get_programs_from_db()
             return render_template('edit_plan.html', plan_id=plan_id, major=None, degree=None,
-                                   programs=programs, needs_program_assignment=True)
+                                   programs=programs, needs_program_assignment=True,
+                                   student_id=student_id, student_name=student_name)
 
     requirements = []
     classes = []
@@ -444,6 +482,16 @@ def edit_plan(plan_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT s.id, s.name 
+            FROM Student s
+            JOIN Student_Plans_Plan spp ON s.id = spp.id
+            WHERE spp.plan_id = %s
+        """, (plan_id,))
+        student_info = cursor.fetchone()
+        if student_info:
+            student_id, student_name = student_info[0], student_info[1]
         
         # 1. Fetch requirements for this program
         cursor.execute("SELECT requirement_name FROM Program_Has_Requirements WHERE major = %s AND degree = %s", (major, degree))
@@ -615,7 +663,8 @@ def edit_plan(plan_id):
     return render_template('edit_plan.html', plan_id=plan_id, major=major, degree=degree,
                            requirements=requirements, selected_req=selected_req,
                            classes=classes, plan_classes=plan_classes_grouped,
-                           chosen_exclusive_option=chosen_exclusive_option)
+                           chosen_exclusive_option=chosen_exclusive_option,
+                           student_id=student_id, student_name=student_name)
 
 @app.route('/assign-program', methods=['POST'])
 def assign_program():

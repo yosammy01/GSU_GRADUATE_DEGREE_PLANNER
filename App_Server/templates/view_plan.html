@@ -44,6 +44,11 @@
     </div>
     <h1>Degree Plan: {{ plan.plan_id }}</h1>
     <h2>{{ plan.major }} - {{ plan.degree }}</h2>
+    
+    <div style="margin-bottom: 1.5em; padding: 1em; background-color: #e9ecef; border: 1px solid #ccc; border-radius: 8px; display: inline-block;">
+        <strong>Current GPA:</strong> {{ plan.current_gpa }} &nbsp;&nbsp;|&nbsp;&nbsp; 
+        <strong>Possible GPA:</strong> {{ plan.possible_gpa }}
+    </div>
 
     {% for req_name, classes in classes_by_req.items() %}
     <div class="requirement-group">
