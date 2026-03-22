@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-lb
+spec:
+  type: LoadBalancer        # Creates a Public IP for your presentation
+  ports:
+  - port: 80                # Port for the browser
+    targetPort: 5000        # The port your app code listens on
+  selector:
+    app: web-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app-deployment
+spec:
+  replicas: 2               # Creates 2 web server instances
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: degree-planner
+        image: YOUR_ACR_NAME.azurecr.io/your-app-image:v1
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_HOST
+          value: "db"           # Matches your mysql-db.yaml service name
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          value: "root"
+        - name: DB_NAME
+          value: "gsu_catalog"  # Matches your mysql-db.yaml database name
+        - name: ADMIN_PASSWORD
+          value: "admin"        # Admin password for deleting directly from database

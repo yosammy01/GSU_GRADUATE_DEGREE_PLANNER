@@ -11,7 +11,14 @@ container_id = socket.gethostname()
 def get_db_connection():
     return mysql.connector.connect(
         # ------------------------------
-        # PRODUCTION SETTINGS (UNCOMMENT FOR DEPLOYMENT)
+        # DOCKER SETTINGS (UNCOMMENT FOR DOCKER DEPLOYMENT)
+        host='db', # This matches the service name in your docker-compose.yml
+        port=3306,
+        user='root',
+        password='root',
+
+        # ------------------------------
+        # DOCKER SETTINGS (UNCOMMENT FOR DOCKER DEPLOYMENT)
         # host='db', # This matches the service name in your docker-compose.yml
         # port=3306,
         # user='flask_user',
@@ -19,10 +26,10 @@ def get_db_connection():
 
         # ------------------------------
         # LOCAL DEVELOPMENT SETTINGS (UNCOMMENT FOR LOCAL TESTING)
-        host='localhost',
-        port=3307,
-        user='root',  
-        password='root',
+        # host='localhost',
+        # port=3307,
+        # user='root',  
+        # password='root',
         # ------------------------------
 
         database='gsu_catalog'
