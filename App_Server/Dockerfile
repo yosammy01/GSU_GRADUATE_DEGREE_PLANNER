@@ -11,8 +11,8 @@ COPY requirements.txt .
 # Install the necessary Python packages (Flask, Gunicorn, and MySQL connector)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your Flask application code (app.py, templates, etc.) 
-# from your local App_Server folder into the container's /app folder
+# Copy the rest of Flask application code (app.py, templates, etc.) 
+# from local App_Server folder into the container's /app folder
 COPY . .
 
 # Expose port 5000 for the web application

@@ -12,6 +12,8 @@ services:
       MYSQL_USER: flask_user
       MYSQL_PASSWORD: your_secure_password
     restart: always
+    volumes:
+      - ./mysql_data:/var/lib/mysql
 
   # 2. Web Server Instance 1
   web1:
@@ -48,7 +50,8 @@ services:
       - ./App_Server/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       # Mapped to 8080 to avoid Windows access permission errors on port 80
-      - "8080:80"
+      # Changed back to 80 for deployment in the azure cloud.
+      - "80:80"
     depends_on:
       - web1
       - web2
