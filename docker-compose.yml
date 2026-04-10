@@ -28,6 +28,7 @@ services:
       DB_PASSWORD: your_secure_password
       DB_NAME: gsu_catalog
       ADMIN_PASSWORD: "admin"
+    restart: always
 
   # 3. Web Server Instance 2 (Parallel)
   web2:
@@ -42,6 +43,7 @@ services:
       DB_PASSWORD: your_secure_password
       DB_NAME: gsu_catalog
       ADMIN_PASSWORD: "admin"
+    restart: always
 
   # 4. Load Balancer (Nginx)
   load_balancer:
@@ -55,3 +57,4 @@ services:
     depends_on:
       - web1
       - web2
+    restart: always
