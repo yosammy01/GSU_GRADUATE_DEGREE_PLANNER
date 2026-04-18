@@ -114,9 +114,10 @@ locust -f locustfile_baseline.py
    * For production testing: `http://<YOUR_AZURE_PUBLIC_IP>` (Do not include a trailing slash or port number).
 5. Click **Start Swarming** to begin the test and monitor the Requests Per Second (RPS) and Latency metrics.
 ```
+
 ---
 
-## 5. Architectural Design & Scalability (Graduate Requirement)
+##5. Architectural Design & Scalability (Graduate Requirement)
 
 ### Design Rationale
 The GSU Graduate Degree Planner was architected as a decoupled, multi-container microservice environment to prioritize high availability, fault tolerance, and environment consistency. 
