@@ -1,12 +1,3 @@
-I see exactly what is breaking the formatting! There are two tiny Markdown syntax errors hidden in the text you pasted:
-
-1. **The Stray Backticks:** At the very end of Section 4, right above the `---` line, there is a random ` ``` ` sitting by itself. This tells GitHub to treat the rest of your document as one giant code block.
-2. **The Missing Space:** On the header for Section 5, it says `##5.` instead of `## 5.`. Markdown requires a space after the hash marks to recognize it as a header.
-
-I have cleaned up those errors, fixed a few invisible spacing characters that sometimes happen when copying and pasting, and stitched the whole thing together into a perfect, final draft.
-
-**To avoid any further formatting issues:** Click the **"Copy code"** button in the top right corner of the black box below, and paste it directly into your GitHub editor.
-
 ```markdown
 # GSU Graduate Degree Planner
 
