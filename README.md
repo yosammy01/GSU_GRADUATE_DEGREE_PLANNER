@@ -1,4 +1,3 @@
-```markdown
 # GSU Graduate Degree Planner
 
 ## Overview
