@@ -115,6 +115,8 @@ locust -f locustfile_baseline.py
 5. Click **Start Swarming** to begin the test and monitor the Requests Per Second (RPS) and Latency metrics.
 ```
 
+---
+
 ## 5. Architectural Design & Scalability (Graduate Requirement)
 
 ### Design Rationale
