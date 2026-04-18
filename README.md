@@ -114,3 +114,28 @@ locust -f locustfile_baseline.py
    * For production testing: `http://<YOUR_AZURE_PUBLIC_IP>` (Do not include a trailing slash or port number).
 5. Click **Start Swarming** to begin the test and monitor the Requests Per Second (RPS) and Latency metrics.
 ```
+
+## 5. Architectural Design & Scalability (Graduate Requirement)
+
+### Design Rationale
+The GSU Graduate Degree Planner was architected as a decoupled, multi-container microservice environment to prioritize high availability, fault tolerance, and environment consistency. 
+* **Deployment:** Docker Compose was selected to eliminate "works-on-my-machine" discrepancies and allow the entire infrastructure (load balancer, web nodes, and database) to be spun up with a single command.
+* **Traffic Routing:** Nginx serves as the entry point and reverse proxy. It was chosen for its high-performance event-loop architecture, shielding the backend Python applications from direct internet exposure while actively distributing incoming HTTP traffic.
+* **Frontend Delivery:** The application utilizes a Server-Side Rendered (SSR) architecture via pure HTML and Jinja2 templating. By intentionally omitting heavy client-side JavaScript frameworks or massive CSS libraries, the network payload per user request is kept to an absolute minimum, ensuring fast structural delivery.
+
+### Scalability Considerations
+The current architecture is specifically designed for **Horizontal Scaling** (scaling out). 
+Because the Flask application is containerized and stateless, increasing the system's capacity does not require rewriting the application code. It simply requires:
+1. Spinning up additional web containers (`web3`, `web4`, etc.) in the `docker-compose.yml` file.
+2. Appending the new container hostnames to the Nginx `upstream` block.
+
+This allows the application to gracefully handle increased traffic by adding more redundant backend nodes, rather than relying solely on Vertical Scaling (buying a larger, more expensive Azure Virtual Machine).
+
+### System Limitations and Hardware Bottlenecks
+Based on empirical baseline stress testing utilizing Locust (simulating 500 concurrent users), the current architecture exhibits specific, identifiable limitations:
+
+1. **Compute-Bound Architecture:** Telemetry from the Azure Virtual Machine proved that the system is severely CPU-bottlenecked. Under heavy load, processor utilization spiked to maximum capacity while available RAM remained entirely static (underutilized at ~6.2 GiB). 
+2. **Synchronous Worker Queueing:** The Flask containers are powered by Gunicorn utilizing `sync` (synchronous) workers. Because each worker can only process one request at a time, the system hits a hard throughput ceiling of approximately **25 Requests Per Second (RPS)** on the current hardware tier.
+3. **Catastrophic Latency Under Load:** Once the 25 RPS threshold is breached, incoming requests are forced into a server-side queue. During the 500-user stress test, this queue resulted in 95th percentile (P95) response times exceeding 19,000 milliseconds, eventually leading to dropped network sockets (`ConnectionResetError`). 
+
+**Future Iteration Path:** To mitigate these limitations, future deployments should either migrate to Compute-Optimized Virtual Machines (prioritizing CPU cores over RAM) or reconfigure the Gunicorn WSGI server to utilize asynchronous worker classes (such as `gevent` or `eventlet`) to handle highly concurrent network I/O more efficiently.
