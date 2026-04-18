@@ -1,7 +1,7 @@
 # GSU Graduate Degree Planner
 
 ## Overview
-This repository contains the source code and deployment configuration for the GSU Graduate Degree Planner. The application is built using a Python/Flask backend and is designed for high availability and concurrent load handling. 
+This repository contains the source code and deployment configuration for the GSU Graduate Degree Planner. The application is built using a pure Python/Flask backend with standard HTML templating, designed specifically for high availability and concurrent load handling.
 
 The production architecture utilizes Docker Compose to orchestrate an Nginx load balancer distributing traffic across multiple Gunicorn WSGI synchronous worker containers (`web1` and `web2`), alongside a dedicated database container.
 
